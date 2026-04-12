@@ -245,21 +245,66 @@ class FoldEnv(gym.Env):
 
     def _update_coords(self, residue_idx: int):
         """
-        Simplified coordinate update — translates residue position
-        based on torsion angle change. In a full implementation this
-        would propagate through the kinematic chain.
+        Proper kinematic chain propagation.
+        When a dihedral angle changes at residue i, all residues
+        downstream (i+1, i+2, ..., N-1) must be recomputed.
+        Uses NeRF (Natural Extension Reference Frame) algorithm.
         """
-        phi = self.phi_angles[residue_idx]
-        psi = self.psi_angles[residue_idx]
-        # Simplified: update x,y based on angle (coarse approximation)
-        bond_len = 3.8  # Cα-Cα virtual bond length in Angstroms
-        if residue_idx > 0:
-            prev = self.ca_coords[residue_idx - 1]
-            self.ca_coords[residue_idx] = prev + bond_len * np.array([
-                np.cos(phi),
-                np.sin(phi) * np.cos(psi),
-                np.sin(phi) * np.sin(psi)
+        BOND_LENGTH = 3.8  # Cα-Cα virtual bond length in Angstroms
+
+        # Rebuild from residue_idx onward
+        for i in range(residue_idx, self.N):
+            if i == 0:
+                # First residue stays fixed as anchor
+                continue
+
+            if i == 1:
+                # Second residue: place along x-axis from first
+                prev = self.ca_coords[0]
+                self.ca_coords[1] = prev + np.array(
+                    [BOND_LENGTH, 0.0, 0.0], dtype=np.float32
+                )
+                continue
+
+            # For residue i, use NeRF to place it relative to i-2, i-1
+            phi = self.phi_angles[i]
+            psi = self.psi_angles[i - 1]  # psi of previous residue
+
+            # Three reference points
+            a = self.ca_coords[i - 2]
+            b = self.ca_coords[i - 1]
+
+            # Bond vectors
+            bc = b - a
+            bc_norm = bc / (np.linalg.norm(bc) + 1e-8)
+
+            # Build local reference frame
+            # n = normal to the plane of a,b,c
+            if i >= 2:
+                n = np.cross(bc_norm, np.array([0, 0, 1], dtype=np.float32))
+                n_norm = np.linalg.norm(n)
+                if n_norm < 1e-6:
+                    n = np.cross(bc_norm,
+                                 np.array([0, 1, 0], dtype=np.float32))
+                    n_norm = np.linalg.norm(n)
+                n = n / (n_norm + 1e-8)
+
+            # Perpendicular in plane
+            m = np.cross(n, bc_norm)
+
+            # Place new Cα using dihedral angles
+            d = BOND_LENGTH * np.array([
+                np.cos(np.pi - 1.92),  # bond angle ~110°
+                np.sin(np.pi - 1.92) * np.cos(phi),
+                np.sin(np.pi - 1.92) * np.sin(phi)
             ], dtype=np.float32)
+
+            # Rotate into global frame
+            self.ca_coords[i] = b + (
+                    d[0] * bc_norm +
+                    d[1] * m +
+                    d[2] * n
+            )
 
     def _build_graph(self) -> Data:
         """Rebuild PyG graph from current coordinates."""
