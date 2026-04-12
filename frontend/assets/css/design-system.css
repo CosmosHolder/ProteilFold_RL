@@ -1,0 +1,306 @@
+/* ============================================================
+   ProteinFold-RL — Shared Design System
+   All 5 pages import this file.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Tokens ── */
+:root {
+  --bg:        #020c18;
+  --bg2:       #040f1f;
+  --bg3:       #061428;
+  --blue:      #3d9fff;
+  --blue-dim:  rgba(61,159,255,0.12);
+  --blue-mid:  rgba(61,159,255,0.25);
+  --teal:      #00d4aa;
+  --teal-dim:  rgba(0,212,170,0.10);
+  --red:       #ff5f5f;
+  --red-dim:   rgba(255,95,95,0.10);
+  --amber:     #ffb347;
+  --text:      #ddeeff;
+  --text-dim:  rgba(180,210,240,0.45);
+  --text-mid:  rgba(180,210,240,0.65);
+  --border:    rgba(61,159,255,0.10);
+  --border-hi: rgba(61,159,255,0.22);
+  --mono:      'Space Mono', monospace;
+  --sans:      'Syne', sans-serif;
+  --nav-h:     56px;
+}
+
+/* ── Base ── */
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ── Stars canvas ── */
+#stars-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Page wrapper ── */
+.page { position: relative; z-index: 2; }
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  height: var(--nav-h);
+  border-bottom: 0.5px solid var(--border);
+  background: rgba(2,12,24,0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-logo {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.nav-logo-dot {
+  width: 7px; height: 7px;
+  background: var(--blue);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: nav-blink 2.4s ease-in-out infinite;
+}
+@keyframes nav-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+  height: var(--nav-h);
+}
+.nav-links a {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 100%;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-right: 0.5px solid var(--border);
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.nav-links a:first-child { border-left: 0.5px solid var(--border); }
+.nav-links a:hover        { color: var(--blue); background: var(--blue-dim); }
+.nav-links a.active       { color: var(--blue); background: var(--blue-dim); }
+
+.nav-right {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   TICKER
+   ============================================================ */
+.ticker {
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bg2);
+  overflow: hidden;
+  height: 38px;
+  display: flex;
+  align-items: center;
+}
+.ticker-track {
+  display: flex;
+  white-space: nowrap;
+  animation: ticker-scroll 32s linear infinite;
+}
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.ticker-item {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  padding: 0 28px;
+  border-right: 0.5px solid var(--border);
+  line-height: 38px;
+  flex-shrink: 0;
+}
+.ticker-item .v-blue  { color: var(--blue); }
+.ticker-item .v-teal  { color: var(--teal); }
+.ticker-item .v-amber { color: var(--amber); }
+
+/* ============================================================
+   SECTION LABEL
+   ============================================================ */
+.section-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(61,159,255,0.4);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 2rem;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 0.5px;
+  background: var(--border);
+}
+
+/* ============================================================
+   PASS BADGE
+   ============================================================ */
+.pass-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 1.1rem 2.5rem;
+  background: rgba(0,212,170,0.04);
+  border-top: 0.5px solid rgba(0,212,170,0.12);
+  border-bottom: 0.5px solid rgba(0,212,170,0.12);
+}
+.pass-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+  flex-shrink: 0;
+  animation: pass-pulse 2s ease-in-out infinite;
+}
+@keyframes pass-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,170,0.5); }
+  50%       { box-shadow: 0 0 0 7px rgba(0,212,170,0); }
+}
+.pass-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(0,212,170,0.7);
+  letter-spacing: 0.1em;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer {
+  padding: 1.5rem 2.5rem;
+  border-top: 0.5px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer-l {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: rgba(120,160,200,0.3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.footer-r {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: rgba(61,159,255,0.3);
+  letter-spacing: 0.1em;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn-primary {
+  background: var(--blue);
+  color: #020c18;
+  border: none;
+  padding: 12px 28px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.18s, transform 0.18s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-primary:hover { background: #72baff; transform: translateY(-1px); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border: 0.5px solid var(--border-hi);
+  padding: 12px 28px;
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.18s;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+
+/* ============================================================
+   TAGS
+   ============================================================ */
+.tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 5px 12px;
+  border: 0.5px solid rgba(61,159,255,0.15);
+  color: var(--text-dim);
+  border-radius: 1px;
+  transition: all 0.15s;
+  display: inline-block;
+}
+.tag:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--blue-dim);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .nav          { padding: 0 1.25rem; }
+  .nav-links    { display: none; }
+  .nav-right    { font-size: 9px; }
+  .pass-row     { padding: 1rem 1.25rem; }
+  .footer       { padding: 1.25rem; }
+}
