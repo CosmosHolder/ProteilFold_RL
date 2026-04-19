@@ -333,21 +333,22 @@ def get_training_log_json(
         }
         for e in episodes_limited
     ]
-# ── GET /ramachandran ──────────────────────────────────────────
+# ── Ramachandran cache ─────────────────────────────────────────
+_ramachandran_cache = None
 
 @router.get(
     "/ramachandran",
     summary="Phi/psi angles for Ramachandran plot",
-    description=(
-        "Runs 20 episodes of trained agent + random baseline on 1L2Y. "
-        "Collects all phi/psi angles per step. Also returns native angles. "
-        "Feeds the Ramachandran plot on the frontend."
-    ),
 )
 def get_ramachandran():
-    """Return phi/psi angles for native, trained, and random agents."""
-    mm = get_model_manager()
+    """Return phi/psi angles — computed once, cached forever."""
+    global _ramachandran_cache
 
+    # Return cached result immediately if available
+    if _ramachandran_cache is not None:
+        return _ramachandran_cache
+
+    mm = get_model_manager()
     if not mm.is_loaded:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -356,14 +357,14 @@ def get_ramachandran():
 
     from env.fold_env import FoldEnv as _FoldEnv
 
-    N_EPISODES = 20
+    N_EPISODES = 5  # reduced from 20 — still meaningful, much faster
     pdb_id     = "1L2Y"
 
     native_angles  = []
     trained_angles = []
     random_angles  = []
 
-    # ── Native angles from the native graph ───────────────────
+    # Native angles
     env_native = _FoldEnv(pdb_id=pdb_id)
     env_native.reset()
     for phi, psi in zip(env_native.phi_angles, env_native.psi_angles):
@@ -372,7 +373,7 @@ def get_ramachandran():
             "psi": round(float(psi), 4),
         })
 
-    # ── Trained agent ─────────────────────────────────────────
+    # Trained agent — 5 episodes
     for _ in range(N_EPISODES):
         env_t = _FoldEnv(pdb_id=pdb_id)
         env_t.reset()
@@ -392,7 +393,7 @@ def get_ramachandran():
                     "psi": round(float(psi), 4),
                 })
 
-    # ── Random baseline ───────────────────────────────────────
+    # Random baseline — 5 episodes
     for _ in range(N_EPISODES):
         env_r = _FoldEnv(pdb_id=pdb_id)
         env_r.reset()
@@ -407,11 +408,13 @@ def get_ramachandran():
                     "psi": round(float(psi), 4),
                 })
 
-    return {
+    _ramachandran_cache = {
         "native" : native_angles,
         "trained": trained_angles,
         "random" : random_angles,
     }
+
+    return _ramachandran_cache
 
 
 # ── GET /coords ────────────────────────────────────────────────
