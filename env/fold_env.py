@@ -21,6 +21,11 @@ R_STEP_PENALTY  = -0.3
 R_RMSD_BONUS    = +15.0
 RMSD_THRESHOLD  =  2.0   # Angstroms
 
+# ── Secondary structure reward constants ─────────────────────
+R_SS_HELIX      = +0.3
+R_SS_SHEET      = +0.3
+R_SS_DISALLOWED = -0.1
+
 # ── Action space constants ───────────────────────────────────
 N_ANGLES        = 2      # phi, psi
 N_INCREMENTS    = 12     # 30° each
@@ -32,11 +37,17 @@ MAX_STEPS       = 50
 MAX_CLASHES     = 5
 ENERGY_CONVERGE = 0.01   # kcal/mol — convergence threshold
 
+
+
 PDB_PATHS = {
-    "1L2Y": os.path.join(os.path.dirname(__file__),
-                         "../data/structures/1L2Y.pdb"),
-    "1YRF": os.path.join(os.path.dirname(__file__),
-                         "../data/structures/1YRF.pdb"),
+    "1L2Y": os.path.join(os.path.dirname(__file__), "../data/structures/1L2Y.pdb"),
+    "1YRF": os.path.join(os.path.dirname(__file__), "../data/structures/1YRF.pdb"),
+    "1VII": os.path.join(os.path.dirname(__file__), "../data/structures/1VII.pdb"),
+    "2GB1": os.path.join(os.path.dirname(__file__), "../data/structures/2GB1.pdb"),
+    "1ENH": os.path.join(os.path.dirname(__file__), "../data/structures/1ENH.pdb"),
+    "1UBQ": os.path.join(os.path.dirname(__file__), "../data/structures/1UBQ.pdb"),
+    "1BDD": os.path.join(os.path.dirname(__file__), "../data/structures/1BDD.pdb"),
+    "2HHB": os.path.join(os.path.dirname(__file__), "../data/structures/2HHB.pdb"),
 }
 
 
@@ -206,9 +217,8 @@ class FoldEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     # ────────────────────────────────────────────────────────
-    def _compute_reward(self, energy_delta: float,
-                        has_clash: bool, new_energy: float) -> float:
-        reward = R_STEP_PENALTY  # always applied
+    def _compute_reward(self, energy_delta, has_clash, new_energy):
+        reward = R_STEP_PENALTY
 
         if has_clash:
             reward += R_CLASH
@@ -223,13 +233,39 @@ class FoldEnv(gym.Env):
         else:
             reward += R_ENERGY_UP
 
+        # Secondary structure reward        ← ADD THIS LINE
+        reward += self._compute_ss_reward()
+
         # RMSD bonus
         rmsd = self._compute_rmsd()
         if rmsd < RMSD_THRESHOLD:
             reward += R_RMSD_BONUS
 
         return reward
+    @staticmethod
+    def _is_helix_region(phi, psi):
+        phi_deg = np.degrees(phi)
+        psi_deg = np.degrees(psi)
+        return (-90.0 <= phi_deg <= -30.0) and (-77.0 <= psi_deg <= -17.0)
 
+    @staticmethod
+    def _is_sheet_region(phi, psi):
+        phi_deg = np.degrees(phi)
+        psi_deg = np.degrees(psi)
+        return (-150.0 <= phi_deg <= -90.0) and (100.0 <= psi_deg <= 175.0)
+
+    def _compute_ss_reward(self):
+        total = 0.0
+        for i in range(self.N):
+            phi = self.phi_angles[i]
+            psi = self.psi_angles[i]
+            if self._is_helix_region(phi, psi):
+                total += R_SS_HELIX
+            elif self._is_sheet_region(phi, psi):
+                total += R_SS_SHEET
+            else:
+                total += R_SS_DISALLOWED
+        return total / self.N
     # ────────────────────────────────────────────────────────
     def _decode_action(self, action: int):
         increment   = action % N_INCREMENTS

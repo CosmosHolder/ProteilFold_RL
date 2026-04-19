@@ -1,229 +1,304 @@
-# ProteilFold_RL
-nit delhi project
-# ProteinFold-RL — Backend API v2.0
+# 🧬 ProteinFold-RL
 
 > **AlphaFold shows the destination. We discover the journey.**
 
-FastAPI backend for the ProteinFold-RL project.  
-Runs on **port 8000** locally. Deployed to **HuggingFace Spaces**.
+An reinforcement learning agent that learns **how proteins fold** — not just where they end up.
+Rewarded by the laws of chemistry. No human labels. Physics is the teacher.
 
 ---
 
-## Project structure
+## The Problem
+
+**AlphaFold2** (Nobel Prize 2024) predicts the final 3D structure of a protein with near-experimental accuracy.
+It is completely silent about **the folding pathway** — the sequence of physical conformational changes
+a protein undergoes as it folds.
+
+The pathway is where disease lives:
+
+- 🧠 **Alzheimer's disease** — amyloid-beta misfolding
+- 🧠 **Parkinson's disease** — alpha-synuclein aggregation
+- 💉 **Type 2 Diabetes** — IAPP fibril formation
+
+No dataset of correct folding pathways exists at atomic resolution.
+**Physics is the only teacher. RL is the only honest framework.**
+
+---
+
+## Results
+
+| Metric | Random Agent | Trained Agent | Improvement |
+|--------|-------------|---------------|-------------|
+| Avg RMSD (Å) | 16.775 | 15.920 | −0.855 Å (−5.1%) |
+| Avg Energy (kcal/mol) | 117.258 | 54.430 | −62.828 (−53.6%) |
+| Episodes trained | — | 500 | — |
+| Verdict | Baseline | **Superior** | **[PASS] ✅** |
+
+> Trained agent outperforms random baseline on every metric.
+> Energy reduced by **53.6%** — the agent learned physics-based folding from reward alone.
+
+---
+
+## Architecture
 
 ```
-ProteilFold_RL/
-├── api/
-│   ├── __init__.py
-│   ├── main.py              ← FastAPI app, CORS, lifespan
-│   ├── model_manager.py     ← Singleton model loader
-│   ├── fold_runner.py       ← Inference engine (no FastAPI deps)
-│   ├── schemas.py           ← All Pydantic request/response models
-│   └── routes/
-│       ├── __init__.py
-│       ├── health.py        ← GET /health
-│       ├── fold.py          ← POST /fold
-│       └── results.py       ← GET /results, /best-episode, /compare
-└── api/tests/
-    └── test_api.py          ← Full test suite (no weights needed)
+Protein PDB
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  FoldEnv (Gymnasium)                │
+│  State  → protein graph             │
+│           nodes [N, 23]             │
+│           edges [E, 4] @ 8Å cutoff  │
+│  Action → residue × angle × step    │
+│           Discrete(N × 2 × 12)      │
+│  Reward → Lennard-Jones energy Δ    │
+│           +8.0  big energy drop     │
+│           +2.0  small energy drop   │
+│           +1.0  no clash            │
+│           −2.0  steric clash        │
+│           −0.3  per step penalty    │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  GNN Policy Network                 │
+│  NodeEncoder  23 → 128 dim          │
+│  EdgeEncoder   4 →  64 dim          │
+│  MPNNStack    4 layers → 256 dim    │
+│  Policy head  256 → action_dim      │
+│  Value head   256 → 128 → 1         │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  PPO-clip Trainer                   │
+│  ε = 0.2   γ = 0.99   λ = 0.95     │
+│  Horizon T = 256   Epochs = 4       │
+│  AdamW lr = 3e-4                    │
+│  GAE advantage estimation           │
+└─────────────────────────────────────┘
 ```
 
 ---
 
-## Quick start
+## Project Structure
 
-```powershell
-# From project root
-.venv\Scripts\activate
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
-Swagger UI: http://localhost:8000/docs  
-ReDoc:       http://localhost:8000/redoc
+ProteinFold-RL/
+│
+├── data/
+│   └── structures/          # PDB files (1L2Y, 1YRF, ...)
+│
+├── env/
+│   ├── fold_env.py          # Gymnasium environment
+│   ├── protein_graph.py     # PDB → PyG graph
+│   ├── energy.py            # Lennard-Jones + torsion energy
+│   └── clash_detect.py      # Steric clash detection
+│
+├── model/
+│   ├── features.py          # Node + edge encoders
+│   ├── mpnn.py              # Message passing layers
+│   └── gnn_policy.py        # Full policy + value network
+│
+├── agent/
+│   └── ppo.py               # PPO-clip trainer
+│
+├── app/
+│   ├── visualize.py         # PDB string gen, log loader
+│   └── gradio_app.py        # Gradio dashboard (standalone)
+│
+├── frontend/
+│   ├── index.html           # Landing page
+│   ├── dashboard.html       # Training charts
+│   ├── demo.html            # Live folding demo
+│   ├── science.html         # Architecture + equations
+│   ├── compare.html         # Agent vs random baseline
+│   └── assets/
+│       ├── css/design-system.css
+│       ├── js/charts.js
+│       ├── js/stars.js
+│       ├── js/ticker.js
+│       └── data/training_log.json
+│
+├── logs/
+│   ├── training_log.csv     # Per-episode training data
+│   ├── best_trajectory.csv  # Best episode step log
+│   └── eval_results.json    # Evaluation summary
+│
+├── checkpoints/
+│   └── policy_final.pt      # Trained model weights
+│
+├── train.py                 # Training loop
+├── eval.py                  # Evaluation vs random baseline
+├── csv_to_json.py           # Convert training log for dashboard
+└── README.md
+```
 
 ---
 
-## Endpoints
+## Setup
 
-### `GET /health`
-Liveness + readiness probe.
+### Requirements
 
-**Response**
-```json
-{
-  "status": "ok",
-  "model_loaded": true,
-  "checkpoint_path": "checkpoints/policy_final.pt",
-  "supported_proteins": ["1L2Y", "1YRF"],
-  "version": "2.0.0"
-}
+- Python 3.10+
+- Windows / Linux / macOS
+- CPU only (no GPU required)
+
+### Install
+
+```bash
+git clone https://github.com/your-username/ProteinFold-RL
+cd ProteinFold-RL
+
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux / macOS
+
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+pip install torch-geometric==2.7.0
+pip install biopython gymnasium fastapi uvicorn gradio numpy scipy pandas
+```
+
+### Download protein structures
+
+```bash
+python data/prepare_data.py
 ```
 
 ---
 
-### `POST /fold`
-Run the trained agent on a protein.
+## Run
 
-**Request body**
+### 1 — Train the agent
+
+```bash
+python train.py
+# Optional: single protein mode
+python train.py --protein 1L2Y --episodes 500
+```
+
+Training logs to `logs/training_log.csv`. Checkpoint saved to `checkpoints/policy_final.pt`.
+
+### 2 — Evaluate
+
+```bash
+python eval.py
+# Results saved to logs/eval_results.json
+```
+
+### 3 — Convert training log for dashboard
+
+```bash
+python csv_to_json.py
+# Writes frontend/assets/data/training_log.json
+```
+
+### 4 — Start the FastAPI backend
+
+```bash
+uvicorn app.main:app --port 8000
+# API docs at http://localhost:8000/docs
+```
+
+### 5 — Open the frontend
+
+Open `frontend/index.html` in your browser.
+Navigate to **Live Demo** and click **Run folding agent**.
+
+### 6 — Gradio dashboard (alternative)
+
+```bash
+python app/gradio_app.py
+# Opens at http://127.0.0.1:7860
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Backend status + model loaded flag |
+| `POST` | `/fold` | Run agent on a protein, returns energy curve |
+| `GET` | `/training-log-json` | Full training log as JSON array |
+| `GET` | `/results` | Latest eval results |
+| `GET` | `/best-episode` | Best episode trajectory |
+
+**POST `/fold` request body:**
 ```json
 {
   "pdb_id": "1L2Y",
-  "n_steps": 50,
-  "deterministic": false
+  "n_steps": 50
 }
 ```
 
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| `pdb_id` | `"1L2Y"` \| `"1YRF"` | one of pdb_id/sequence | Known protein |
-| `sequence` | string | one of pdb_id/sequence | 5–50 AA, uppercase |
-| `n_steps` | int 1–200 | No (default 50) | Agent steps to run |
-| `deterministic` | bool | No (default false) | Greedy if true |
-
-**Response**
+**POST `/fold` response:**
 ```json
 {
-  "job_id": "a3f1c2d4-...",
-  "protein": "1L2Y",
-  "n_residues": 20,
-  "steps_run": 50,
-  "initial_energy": 284.312,
-  "final_energy": 148.737,
-  "energy_drop": 135.575,
-  "final_rmsd": 3.145,
-  "best_rmsd": 1.313,
-  "converged": false,
-  "trajectory": [
-    { "step": 0, "energy": 284.312, "rmsd": 6.2, "has_clash": false, "reward": 0.0 },
-    { "step": 1, "energy": 278.100, "rmsd": 5.8, "has_clash": false, "reward": 8.7 }
-  ],
-  "initial_pdb": "ATOM      1  CA  ASN A   1 ...\nEND",
-  "final_pdb":   "ATOM      1  CA  ASN A   1 ...\nEND",
-  "native_pdb":  "ATOM      1  CA  ASN A   1 ...\nEND"
-}
-```
-
-**Error codes**
-
-| HTTP | `code` | Meaning |
-|------|--------|---------|
-| 400 | `CUSTOM_SEQUENCE_UNSUPPORTED` | Custom seq not yet available |
-| 400 | `UNKNOWN_PROTEIN` | pdb_id not in supported list |
-| 422 | — | Validation error (Pydantic) |
-| 503 | `MODEL_NOT_LOADED` | Checkpoint still loading |
-| 500 | `FOLD_FAILED` | Internal error |
-
----
-
-### `GET /results?limit=500`
-Full training log from `logs/training_log.csv`.
-
-**Response**
-```json
-{
-  "total_episodes": 500,
-  "best_rmsd": 1.313,
-  "best_energy": 22.228,
-  "avg_rmsd_last50": 3.145,
-  "avg_energy_last50": 148.737,
-  "episodes": [
-    {
-      "episode": 1, "protein": "1L2Y", "total_reward": 12.3,
-      "final_energy": 280.1, "rmsd": 5.8, "steps": 50,
-      "policy_loss": 0.12, "value_loss": 0.34, "entropy": 0.05
-    }
-  ]
+  "energy_curve": [[0, 117.3], [1, 112.1], "..."],
+  "final_rmsd": 15.920,
+  "initial_energy": 117.3,
+  "final_energy": 54.4
 }
 ```
 
 ---
 
-### `GET /best-episode`
-Step-by-step trace of the best recorded episode.
+## Science
 
-**Response**
-```json
-{
-  "best_rmsd": 1.313,
-  "best_energy": 22.228,
-  "trajectory": [
-    { "step": 0, "energy": 284.3, "reward": 0.0, "has_clash": false },
-    { "step": 1, "energy": 276.1, "reward": 8.7, "has_clash": false }
-  ]
-}
+### Why Reinforcement Learning?
+
+| Requirement | Why RL fits |
+|---|---|
+| No labelled pathway data exists | RL learns without labels |
+| Sequential conformational decisions | RL models sequential decisions naturally |
+| Physics as the only ground truth | Energy function is the reward signal |
+| Exploration of novel pathways | Entropy bonus drives exploration |
+
+### Energy Function
+
+The reward signal uses a coarse-grained physics potential — the same approximation
+used in **MARTINI coarse-grained models** (Nature Methods), standard in computational biophysics:
+
 ```
+E_total = E_LJ + E_torsion
+
+E_LJ      = 4ε [ (σ/r)¹² − (σ/r)⁶ ]   Lennard-Jones pairwise
+E_torsion = Σ k[1 + cos(nφ − δ)]        Ramachandran torsion penalty
+```
+
+### Why GNN and not MLP?
+
+Proteins are graphs. A flat MLP loses all structural topology.
+Message passing over the contact graph propagates local chemical
+information across the full protein — exactly what spatially-aware
+folding decisions require.
 
 ---
 
-### `GET /compare?pdb_id=1L2Y&n_episodes=10`
-Live trained agent vs random baseline comparison.
+## Tech Stack
 
-> ⚠️ Computationally expensive. Keep `n_episodes` ≤ 10 on HF Spaces.
-
-**Response**
-```json
-{
-  "random_avg_rmsd": 7.637,
-  "random_avg_energy": 267.092,
-  "trained_avg_rmsd": 3.145,
-  "trained_avg_energy": 148.737,
-  "trained_best_rmsd": 1.313,
-  "rmsd_improvement": 4.492,
-  "energy_improvement": 118.355
-}
-```
+| Component | Technology |
+|---|---|
+| Deep learning | PyTorch 2.6 |
+| Graph neural nets | PyTorch Geometric 2.7 |
+| RL environment | Gymnasium |
+| Structure parsing | BioPython |
+| RL algorithm | PPO-clip + GAE |
+| Kinematics | NeRF (Natural Extension Reference Frame) |
+| Energy function | Lennard-Jones + Ramachandran torsion |
+| Backend API | FastAPI + Uvicorn |
+| Gradio dashboard | Gradio |
+| Frontend | Vanilla HTML/CSS/JS + Chart.js |
 
 ---
 
-## Frontend integration (fetch examples)
+## Track
 
-```javascript
-// Check model is ready before showing UI
-const health = await fetch("http://localhost:8000/health").then(r => r.json());
-if (!health.model_loaded) { /* show loading spinner */ }
-
-// Run fold
-const result = await fetch("http://localhost:8000/fold", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ pdb_id: "1L2Y", n_steps: 50 })
-}).then(r => r.json());
-
-// Plot energy curve
-const energyCurve = result.trajectory.map(t => ({ x: t.step, y: t.energy }));
-
-// Render 3D structure (py3Dmol / NGL)
-viewer.addModel(result.final_pdb, "pdb");
-
-// Load training results
-const results = await fetch("http://localhost:8000/results?limit=500").then(r => r.json());
-```
+**Open Innovation** — NIT Delhi · 2025
 
 ---
 
-## Running tests
+## The one-line answer to every judge question
 
-```powershell
-cd C:\Users\Kavinder\Desktop\ProteilFold_RL
-.venv\Scripts\activate
-pytest api/tests/test_api.py -v
-```
-
-Tests mock the model — no checkpoint required to run the test suite.
-
----
-
-## HuggingFace Spaces deployment
-
-Set the environment variable `HF_SPACE_URL` to your Space URL so CORS works:
-
-```
-HF_SPACE_URL=https://kavinder-proteinfold-rl.hf.space
-```
-
-The `Dockerfile` / `app.py` should launch:
-```
-uvicorn api.main:app --host 0.0.0.0 --port 7860
-```
-
-HF Spaces only exposes port 7860 — use that instead of 8000.
+> *"AlphaFold shows the destination. We discover the journey."*

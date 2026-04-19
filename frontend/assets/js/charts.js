@@ -30,24 +30,23 @@ function applyChartDefaults() {
 /* ── Smooth rolling average ── */
 function rollingAvg(arr, window = 20) {
   return arr.map((_, i) => {
-    const start  = Math.max(0, i - window + 1);
-    const slice  = arr.slice(start, i + 1);
-    const avg    = slice.reduce((a, b) => a + b, 0) / slice.length;
+    const start = Math.max(0, i - window + 1);
+    const slice = arr.slice(start, i + 1);
+    const avg   = slice.reduce((a, b) => a + b, 0) / slice.length;
     return parseFloat(avg.toFixed(3));
   });
 }
 
-/* ── Generate synthetic training data ──
-   Mirrors the real curve shape from your 500-episode run.
-   Replace with fetch('./assets/data/training_log.json')
-   once the backend serves real data.
-   ── */
-function generateTrainingData() {
+/* ── Synthetic fallback ─────────────────────────────────────
+   Used when assets/data/training_log.json is not yet present
+   (i.e. training hasn't run). Mirrors the real curve shape.
+   ──────────────────────────────────────────────────────── */
+function _syntheticData() {
   const episodes = Array.from({ length: 500 }, (_, i) => i + 1);
 
   const energy = episodes.map(ep => {
-    const base    = 267 - (267 - 149) * (1 - Math.exp(-ep / 120));
-    const noise   = (Math.random() - 0.5) * 28;
+    const base  = 267 - (267 - 149) * (1 - Math.exp(-ep / 120));
+    const noise = (Math.random() - 0.5) * 28;
     return parseFloat(Math.max(140, base + noise).toFixed(2));
   });
 
@@ -81,7 +80,94 @@ function generateTrainingData() {
     return parseFloat(Math.max(0.5, base + noise).toFixed(4));
   });
 
-  return { episodes, energy, rmsd, reward, policyLoss, valueLoss, entropy };
+  return { episodes, energy, rmsd, reward, policyLoss, valueLoss, entropy, source: 'synthetic' };
+}
+
+/* ── Parse real training_log.json into the same shape ───────
+   Expected JSON format (array of episode objects):
+   [
+     {
+       "episode": 1,
+       "protein": "1L2Y",
+       "stage": 1,
+       "total_reward": -12.4,
+       "final_energy": 241.3,
+       "rmsd": 6.82,
+       "steps": 50,
+       "clashes": 2,
+       "policy_loss": 0.312,
+       "value_loss": 0.281,
+       "entropy": 3.61
+     },
+     ...
+   ]
+   ──────────────────────────────────────────────────────── */
+function _parseLogJson(rows) {
+  const episodes   = rows.map(r => r.episode);
+  const energy     = rows.map(r => parseFloat(r.final_energy));
+  const rmsd       = rows.map(r => parseFloat(r.rmsd));
+  const reward     = rows.map(r => parseFloat(r.total_reward));
+  const policyLoss = rows.map(r => parseFloat(r.policy_loss  || 0));
+  const valueLoss  = rows.map(r => parseFloat(r.value_loss   || 0));
+  const entropy    = rows.map(r => parseFloat(r.entropy      || 0));
+  return { episodes, energy, rmsd, reward, policyLoss, valueLoss, entropy, source: 'real' };
+}
+
+/* ── Main data loader ────────────────────────────────────────
+   Fetches GET http://localhost:8000/training-log-json.
+   Falls back to synthetic data if the endpoint is unreachable,
+   returns an empty array, or returns malformed JSON —
+   so the dashboard always renders.
+
+   Returns a Promise that resolves to the data object.
+   dashboard.html must call this as:
+
+     loadTrainingData().then(data => {
+       buildEnergyChart('chart-energy', data);
+       buildRmsdChart('chart-rmsd', data);
+       buildRewardChart('chart-reward', data);
+       buildLossChart('chart-loss', data);
+       // update data-source badge if present
+       const badge = document.getElementById('data-source-badge');
+       if (badge) badge.textContent = data.source === 'real'
+         ? 'Real training data'
+         : 'Synthetic data (training pending)';
+     });
+   ──────────────────────────────────────────────────────── */
+async function loadTrainingData() {
+  try {
+    const res = await fetch('http://localhost:8000/training-log-json');
+
+    // Server error or endpoint not found
+    if (!res.ok) {
+      console.warn('[charts.js] /training-log-json not found — using synthetic data');
+      return _syntheticData();
+    }
+
+    const text = await res.text();
+
+    // Empty response
+    if (!text || text.trim() === '' || text.trim() === 'null') {
+      console.warn('[charts.js] /training-log-json is empty — using synthetic data');
+      return _syntheticData();
+    }
+
+    const rows = JSON.parse(text);
+
+    // Not an array or zero rows
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.warn('[charts.js] /training-log-json has no rows — using synthetic data');
+      return _syntheticData();
+    }
+
+    console.info(`[charts.js] Loaded ${rows.length} real episodes from /training-log-json`);
+    return _parseLogJson(rows);
+
+  } catch (err) {
+    // JSON parse error or network error
+    console.warn('[charts.js] Failed to fetch /training-log-json:', err.message, '— using synthetic data');
+    return _syntheticData();
+  }
 }
 
 /* ── Build Energy Chart ── */
@@ -140,7 +226,7 @@ function buildEnergyChart(canvasId, data) {
           titleColor: PF.textMid,
           bodyColor: PF.textDim,
           titleFont: { family: PF.mono, size: 10 },
-          bodyFont: { family: PF.mono, size: 10 },
+          bodyFont:  { family: PF.mono, size: 10 },
           callbacks: {
             title: items => `Episode ${items[0].label}`,
             label: item  => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} kcal/mol`,
@@ -226,7 +312,7 @@ function buildRmsdChart(canvasId, data) {
           titleColor: PF.textMid,
           bodyColor: PF.textDim,
           titleFont: { family: PF.mono, size: 10 },
-          bodyFont: { family: PF.mono, size: 10 },
+          bodyFont:  { family: PF.mono, size: 10 },
           callbacks: {
             title: items => `Episode ${items[0].label}`,
             label: item  => ` ${item.dataset.label}: ${item.parsed.y.toFixed(3)} Å`,
@@ -308,7 +394,7 @@ function buildRewardChart(canvasId, data) {
           titleColor: PF.textMid,
           bodyColor: PF.textDim,
           titleFont: { family: PF.mono, size: 10 },
-          bodyFont: { family: PF.mono, size: 10 },
+          bodyFont:  { family: PF.mono, size: 10 },
           callbacks: {
             title: items => `Episode ${items[0].label}`,
             label: item  => ` ${item.dataset.label}: ${item.parsed.y.toFixed(2)}`,
@@ -387,7 +473,7 @@ function buildLossChart(canvasId, data) {
           titleColor: PF.textMid,
           bodyColor: PF.textDim,
           titleFont: { family: PF.mono, size: 10 },
-          bodyFont: { family: PF.mono, size: 10 },
+          bodyFont:  { family: PF.mono, size: 10 },
           callbacks: {
             title: items => `Episode ${items[0].label}`,
             label: item  => ` ${item.dataset.label}: ${item.parsed.y.toFixed(4)}`,

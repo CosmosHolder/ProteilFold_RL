@@ -230,11 +230,14 @@ class TestFold:
         r = client.post("/fold", json={"sequence": "ACG"})
         assert r.status_code == 422
 
-    def test_fold_custom_sequence_returns_400(self, client):
-        # Custom sequences are validated but not yet supported in fold
-        r = client.post("/fold", json={"sequence": "ACDEFGHIKLMNPQRSTVWY"})
-        assert r.status_code == 400
-        assert r.json()["detail"]["code"] == "CUSTOM_SEQUENCE_UNSUPPORTED"
+    def test_fold_custom_sequence_returns_200(self, client):
+        # Custom sequences are now supported via extended chain
+        r = client.post("/fold", json={"sequence": "ACDEFGHIKLMNPQRSTVWY", "n_steps": 3})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["protein"] == "custom"
+        assert body["n_residues"] == 20
+        assert body["native_pdb"] == ""
 
 
 # ── GET /results ───────────────────────────────────────────────

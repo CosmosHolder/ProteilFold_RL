@@ -1,0 +1,25 @@
+══════════════════════════════════════════════════════════════
+  ProteinFold-RL — Training Report
+══════════════════════════════════════════════════════════════
+
+  Episodes trained   : 500
+  Proteins           : 1L2Y
+
+  ── Best Results ─────────────────────────────────────
+  Best RMSD          : 6.690 Å  (episode 11)
+  Best Energy        : 22.280 kcal/mol  (episode 325)
+
+  ── Learning Progress (early vs late 10%) ────────────
+  Energy  :    97.86 →    78.07  (+19.79 kcal/mol, +20.2%)  ✅
+  RMSD    :   15.773 →   16.866 Å  (-1.093 Å, -6.9%)  ⚠️
+  Reward  :   120.06 →   113.94  (-6.12)  ⚠️
+
+  ── Episode Statistics ───────────────────────────────
+  Avg steps/episode  : 46.5
+  Avg clashes/episode: 1.45
+  Avg policy entropy : 8.1253
+
+  ── Per-Protein Episodes ─────────────────────────────
+  1L2Y   :   500 episodes
+
+══════════════════════════════════════════════════════════════

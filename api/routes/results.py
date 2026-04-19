@@ -17,6 +17,7 @@ import csv
 import logging
 import os
 from typing import List
+import torch
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query, status
@@ -289,3 +290,168 @@ def compare_agents(
             float(np.mean(rnd_energies)) - float(np.mean(tr_energies)), 3
         ),
     )
+# ── GET /training-log-json ─────────────────────────────────────
+
+@router.get(
+    "/training-log-json",
+    summary="Training log as JSON array for dashboard charts",
+    description="Returns training_log.csv as a JSON array. "
+                "The frontend charts.js fetches this directly.",
+)
+def get_training_log_json(
+    limit: int = Query(
+        default=1500,
+        ge=1,
+        le=5000,
+        description="Maximum episodes to return.",
+    ),
+):
+    """Return training log as JSON array for the frontend dashboard."""
+    try:
+        episodes = _load_training_log()
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": str(exc), "code": "LOG_NOT_FOUND"},
+        ) from exc
+
+    episodes_limited = episodes[-limit:]
+
+    return [
+        {
+            "episode"     : e.episode,
+            "protein"     : e.protein,
+            "stage"       : 1,
+            "total_reward": e.total_reward,
+            "final_energy": e.final_energy,
+            "rmsd"        : e.rmsd,
+            "steps"       : e.steps,
+            "clashes"     : 0,
+            "policy_loss" : e.policy_loss,
+            "value_loss"  : e.value_loss,
+            "entropy"     : e.entropy,
+        }
+        for e in episodes_limited
+    ]
+# ── GET /ramachandran ──────────────────────────────────────────
+
+@router.get(
+    "/ramachandran",
+    summary="Phi/psi angles for Ramachandran plot",
+    description=(
+        "Runs 20 episodes of trained agent + random baseline on 1L2Y. "
+        "Collects all phi/psi angles per step. Also returns native angles. "
+        "Feeds the Ramachandran plot on the frontend."
+    ),
+)
+def get_ramachandran():
+    """Return phi/psi angles for native, trained, and random agents."""
+    mm = get_model_manager()
+
+    if not mm.is_loaded:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"detail": "Model not loaded.", "code": "MODEL_NOT_LOADED"},
+        )
+
+    from env.fold_env import FoldEnv as _FoldEnv
+
+    N_EPISODES = 20
+    pdb_id     = "1L2Y"
+
+    native_angles  = []
+    trained_angles = []
+    random_angles  = []
+
+    # ── Native angles from the native graph ───────────────────
+    env_native = _FoldEnv(pdb_id=pdb_id)
+    env_native.reset()
+    for phi, psi in zip(env_native.phi_angles, env_native.psi_angles):
+        native_angles.append({
+            "phi": round(float(phi), 4),
+            "psi": round(float(psi), 4),
+        })
+
+    # ── Trained agent ─────────────────────────────────────────
+    for _ in range(N_EPISODES):
+        env_t = _FoldEnv(pdb_id=pdb_id)
+        env_t.reset()
+        done = False
+        while not done:
+            graph = env_t.get_graph()
+            with torch.no_grad():
+                action, _, _, _ = mm.policy.get_action(
+                    graph, deterministic=False
+                )
+            action = action % env_t.action_dim
+            _, _, terminated, truncated, _ = env_t.step(action)
+            done = terminated or truncated
+            for phi, psi in zip(env_t.phi_angles, env_t.psi_angles):
+                trained_angles.append({
+                    "phi": round(float(phi), 4),
+                    "psi": round(float(psi), 4),
+                })
+
+    # ── Random baseline ───────────────────────────────────────
+    for _ in range(N_EPISODES):
+        env_r = _FoldEnv(pdb_id=pdb_id)
+        env_r.reset()
+        done = False
+        while not done:
+            action = env_r.action_space.sample()
+            _, _, terminated, truncated, _ = env_r.step(action)
+            done = terminated or truncated
+            for phi, psi in zip(env_r.phi_angles, env_r.psi_angles):
+                random_angles.append({
+                    "phi": round(float(phi), 4),
+                    "psi": round(float(psi), 4),
+                })
+
+    return {
+        "native" : native_angles,
+        "trained": trained_angles,
+        "random" : random_angles,
+    }
+
+
+# ── GET /coords ────────────────────────────────────────────────
+
+@router.get(
+    "/coords",
+    summary="3D Cα coordinates for molecular viewer",
+    description=(
+        "Returns best and native Cα coordinates from "
+        "logs/best_coords.npy and logs/native_coords.npy. "
+        "Feeds the 3D viewer on the frontend."
+    ),
+)
+def get_coords():
+    """Return best and native 3D Cα coordinates as JSON."""
+    best_path   = os.path.join(_PROJECT_ROOT, "logs", "best_coords.npy")
+    native_path = os.path.join(_PROJECT_ROOT, "logs", "native_coords.npy")
+
+    if not os.path.exists(best_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "detail": "best_coords.npy not found. Run eval.py first.",
+                "code": "COORDS_NOT_FOUND",
+            },
+        )
+
+    if not os.path.exists(native_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "detail": "native_coords.npy not found. Run eval.py first.",
+                "code": "COORDS_NOT_FOUND",
+            },
+        )
+
+    best_coords   = np.load(best_path).tolist()
+    native_coords = np.load(native_path).tolist()
+
+    return {
+        "best"  : [[round(x, 4) for x in row] for row in best_coords],
+        "native": [[round(x, 4) for x in row] for row in native_coords],
+    }

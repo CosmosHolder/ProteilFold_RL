@@ -71,28 +71,26 @@ def fold_protein(request: FoldRequest) -> FoldResponse:
     pdb_id = request.pdb_id.value if request.pdb_id else None
 
     if pdb_id is None:
-        # Custom sequence — not yet supported in this checkpoint
-        # (requires dynamic graph construction from sequence alone,
-        # which needs a secondary structure predictor for coordinates).
-        # We return a clear error rather than silently using wrong coords.
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "detail": (
-                    "Custom sequence folding is not yet available. "
-                    "Use pdb_id='1L2Y' or pdb_id='1YRF'."
-                ),
-                "code": "CUSTOM_SEQUENCE_UNSUPPORTED",
-            },
-        )
-
-    try:
-        env = mm.get_env(pdb_id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"detail": str(exc), "code": "UNKNOWN_PROTEIN"},
-        ) from exc
+        # Custom sequence — build env from sequence directly
+        from api.fold_runner import build_custom_env
+        try:
+            env = build_custom_env(request.sequence)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "detail": f"Failed to build custom sequence env: {exc}",
+                    "code": "CUSTOM_ENV_FAILED",
+                },
+            ) from exc
+    else:
+        try:
+            env = mm.get_env(pdb_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"detail": str(exc), "code": "UNKNOWN_PROTEIN"},
+            ) from exc
 
     # ── Run agent ──────────────────────────────────────────────
     try:

@@ -6,132 +6,151 @@
   <title>ProteinFold-RL — Discover the Journey</title>
   <link rel="stylesheet" href="assets/css/design-system.css" />
   <style>
-    /* ── Hero ── */
+
+    /* ══════════════════════════════════════════
+       HERO
+    ══════════════════════════════════════════ */
     .hero {
-      position: relative;
-      overflow: hidden;
-      padding: 6rem 2.5rem 5rem;
-      min-height: 88vh;
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr 380px;
       align-items: center;
+      gap: 0;
+      padding: 3.5rem 2.5rem 3.5rem;
+      min-height: calc(100vh - 56px);
+      border-bottom: 0.5px solid var(--border);
     }
-    .hero-content {
-      position: relative;
-      z-index: 5;
-      max-width: 640px;
-    }
+
+    .hero-left { display: flex; flex-direction: column; justify-content: center; }
+
     .hero-eyebrow {
       font-family: var(--mono);
       font-size: 10px;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--blue);
-      margin-bottom: 1.75rem;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
+      margin-bottom: 2rem;
     }
     .hero-eyebrow::before {
       content: '';
-      width: 28px;
-      height: 0.5px;
+      width: 24px; height: 0.5px;
       background: var(--blue);
       flex-shrink: 0;
     }
+
     .hero-h1 {
-      font-size: clamp(2.6rem, 6.5vw, 4.8rem);
+      font-size: 3.2rem;
       font-weight: 800;
-      line-height: 1.02;
-      letter-spacing: -0.025em;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
       color: #eaf4ff;
-      margin-bottom: 1.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .hero-h1-second {
+      font-size: 3.2rem;
+      font-weight: 800;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      color: #eaf4ff;
+      margin-bottom: 2rem;
     }
     .hero-h1 .hl {
       color: var(--blue);
       position: relative;
       display: inline-block;
     }
-    .hero-h1 .hl::after {
-      content: '';
-      position: absolute;
-      left: 0; right: 0; bottom: 3px;
-      height: 2px;
-      background: var(--blue);
-      opacity: 0.45;
+    .hero-h1-second .hl {
+      color: var(--teal);
+      display: inline-block;
     }
+
+    .hero-divider {
+      width: 48px; height: 0.5px;
+      background: var(--border-hi);
+      margin-bottom: 2rem;
+    }
+
     .hero-sub {
       font-family: var(--mono);
       font-size: 12px;
-      line-height: 2.1;
+      line-height: 2;
       color: var(--text-dim);
       margin-bottom: 2.5rem;
-      max-width: 480px;
+      max-width: 440px;
     }
-    .hero-sub strong { color: var(--text-mid); font-weight: 700; }
-    .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero-sub strong { color: var(--text-mid); }
 
-    /* ── Protein visual ── */
-    .hero-visual {
-      position: absolute;
-      right: 0; top: 0; bottom: 0;
-      width: 44%;
+    .cta-row { display: flex; gap: 12px; align-items: center; }
+
+    /* ── Protein Visual ── */
+    .hero-right {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      pointer-events: none;
-      z-index: 2;
-      overflow: hidden;
+      gap: 1rem;
+      padding: 2rem;
+      border-left: 0.5px solid var(--border);
+      height: 100%;
     }
-    .helix-svg { width: 100%; max-width: 360px; opacity: 0.88; }
-
-    /* ── Stats ── */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      background: var(--bg2);
-      border-bottom: 0.5px solid var(--border);
-    }
-    .stat {
-      padding: 2rem 2rem 1.75rem;
-      border-right: 0.5px solid var(--border);
-      position: relative;
-      overflow: hidden;
-      transition: background 0.2s;
-    }
-    .stat:hover    { background: rgba(61,159,255,0.04); }
-    .stat:last-child { border-right: none; }
-    .stat-num {
-      font-size: 2.2rem;
-      font-weight: 800;
-      line-height: 1;
-      color: #eaf4ff;
-      margin-bottom: 6px;
-      font-variant-numeric: tabular-nums;
-    }
-    .stat-num .acc-t { color: var(--teal); }
-    .stat-num .acc-b { color: var(--blue); }
-    .stat-label {
+    .protein-label {
       font-family: var(--mono);
       font-size: 9px;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.18em;
+      color: rgba(61,159,255,0.35);
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .helix-svg { width: 260px; }
+
+    /* ── Hero bottom strip ── */
+    .hero-strip {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 0.5px solid var(--border);
+      margin-top: 2rem;
+    }
+    .hero-strip-item {
+      padding: 1.25rem 1.5rem;
+      border-right: 0.5px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .hero-strip-item:last-child { border-right: none; }
+    .strip-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #eaf4ff;
+      line-height: 1;
+    }
+    .strip-val .t { color: var(--teal); }
+    .strip-val .b { color: var(--blue); }
+    .strip-lbl {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text-dim);
     }
-    .stat-bar {
-      position: absolute;
-      bottom: 0; left: 0;
-      height: 2px;
-      background: var(--blue);
-      width: 0;
-      animation: stat-grow 1.6s ease forwards;
-      animation-delay: var(--d);
-    }
-    @keyframes stat-grow { to { width: var(--w); } }
 
-    /* ── Section ── */
-    .section { padding: 4rem 2.5rem; }
+    /* ══════════════════════════════════════════
+       TICKER
+    ══════════════════════════════════════════ */
+    /* (from design-system.css) */
 
-    /* ── RL Loop ── */
+    /* ══════════════════════════════════════════
+       SECTIONS
+    ══════════════════════════════════════════ */
+    .section { padding: 3.5rem 2.5rem; }
+    .section + .section { border-top: 0.5px solid var(--border); }
+
+    /* ══════════════════════════════════════════
+       RL LOOP
+    ══════════════════════════════════════════ */
     .loop-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -142,16 +161,14 @@
       border-right: 0.5px solid var(--border);
       background: var(--bg2);
       position: relative;
-      overflow: hidden;
       transition: background 0.2s;
     }
     .loop-card:last-child { border-right: none; }
-    .loop-card:hover      { background: var(--bg3); }
-    .loop-card::before {
-      content: '';
+    .loop-card:hover { background: var(--bg3); }
+    .loop-top-bar {
       position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 2px;
+      top: 0; left: 0; right: 0;
+      height: 2px;
       background: var(--ac);
     }
     .loop-idx {
@@ -159,57 +176,91 @@
       font-size: 9px;
       letter-spacing: 0.14em;
       color: var(--text-dim);
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
       text-transform: uppercase;
+      margin-top: 0.5rem;
     }
     .loop-title {
-      font-size: 1rem;
+      font-size: 1.05rem;
       font-weight: 700;
       color: #eaf4ff;
-      margin-bottom: 0.6rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 0.5px solid var(--border);
     }
-    .loop-body {
+    .loop-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .loop-key {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
+    }
+    .loop-val {
       font-family: var(--mono);
       font-size: 10px;
-      color: var(--text-dim);
-      line-height: 2;
+      font-weight: 700;
+      letter-spacing: 0.04em;
     }
-    .loop-body .hi-b { color: var(--blue); }
-    .loop-body .hi-t { color: var(--teal); }
-    .loop-body .hi-r { color: var(--red); }
-    .loop-body .hi-a { color: var(--amber); }
+    .c-b { color: var(--blue); }
+    .c-t { color: var(--teal); }
+    .c-r { color: var(--red); }
+    .c-a { color: var(--amber); }
+    .c-w { color: var(--text-mid); }
 
-    /* ── Comparison ── */
+    /* ══════════════════════════════════════════
+       COMPARISON
+    ══════════════════════════════════════════ */
     .cmp-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
       border: 0.5px solid var(--border);
     }
     .cmp-card {
       padding: 2rem;
       background: var(--bg2);
-      border-right: 0.5px solid var(--border);
     }
-    .cmp-card:last-child { border-right: none; }
-    .cmp-lbl {
+    .cmp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .cmp-title {
       font-family: var(--mono);
       font-size: 9px;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--text-dim);
-      margin-bottom: 1.5rem;
     }
+    .cmp-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      padding: 3px 8px;
+      border: 0.5px solid rgba(61,159,255,0.2);
+      color: var(--blue);
+      letter-spacing: 0.08em;
+    }
+
+    .bar-group { margin-bottom: 1.5rem; }
     .bar-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
+      gap: 12px;
+      margin-bottom: 8px;
     }
     .bar-name {
       font-family: var(--mono);
       font-size: 9px;
       color: var(--text-dim);
-      width: 52px;
+      width: 50px;
       text-align: right;
       flex-shrink: 0;
       text-transform: uppercase;
@@ -217,35 +268,39 @@
     }
     .bar-track {
       flex: 1;
-      height: 5px;
-      background: rgba(61,159,255,0.07);
-      overflow: hidden;
+      height: 6px;
+      background: rgba(61,159,255,0.06);
+      position: relative;
     }
     .bar-fill {
-      height: 100%;
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
       width: 0;
-      animation: bar-grow 1.4s ease forwards;
-      animation-delay: 0.5s;
+      animation: bar-grow 1.6s ease forwards;
+      animation-delay: 0.4s;
     }
     @keyframes bar-grow { to { width: var(--w); } }
     .bar-val {
       font-family: var(--mono);
       font-size: 10px;
+      font-weight: 700;
       color: var(--text-mid);
-      width: 58px;
+      width: 60px;
       flex-shrink: 0;
     }
+
     .cmp-result {
-      margin-top: 1.5rem;
-      padding-top: 1.5rem;
+      padding-top: 1.25rem;
       border-top: 0.5px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
     }
     .cmp-big {
-      font-size: 2.6rem;
+      font-size: 2.2rem;
       font-weight: 800;
       color: var(--teal);
       line-height: 1;
-      margin-bottom: 4px;
     }
     .cmp-sub {
       font-family: var(--mono);
@@ -253,337 +308,480 @@
       color: rgba(0,212,170,0.5);
     }
 
-    /* ── Stack ── */
-    .stack-row { display: flex; gap: 8px; flex-wrap: wrap; }
-
-    /* ── Responsive ── */
-    @media (max-width: 900px) {
-      .hero-visual    { display: none; }
-      .hero           { padding: 4rem 1.5rem 3rem; min-height: auto; }
-      .stats          { grid-template-columns: 1fr 1fr; }
-      .loop-grid      { grid-template-columns: 1fr 1fr; }
-      .cmp-grid       { grid-template-columns: 1fr; }
-      .section        { padding: 3rem 1.5rem; }
+    /* ══════════════════════════════════════════
+       STACK
+    ══════════════════════════════════════════ */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 0.5px solid var(--border);
     }
-    @media (max-width: 500px) {
-      .stats     { grid-template-columns: 1fr; }
-      .loop-grid { grid-template-columns: 1fr; }
+    .stack-item {
+      background: var(--bg2);
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+    .stack-item:hover { background: var(--bg3); }
+    .stack-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-mid);
+      letter-spacing: 0.04em;
+    }
+    .stack-role {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+    }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════ */
+    @media (max-width: 960px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding: 2.5rem 1.5rem;
+      }
+      .hero-right { display: none; }
+      .hero-strip { grid-template-columns: 1fr 1fr; }
+      .hero-h1, .hero-h1-second { font-size: 2.4rem; }
+      .loop-grid { grid-template-columns: 1fr 1fr; }
+      .cmp-grid  { grid-template-columns: 1fr; }
+      .section   { padding: 2.5rem 1.5rem; }
+    }
+    @media (max-width: 560px) {
+      .hero-h1, .hero-h1-second { font-size: 1.9rem; }
+      .hero-strip { grid-template-columns: 1fr 1fr; }
+      .loop-grid  { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Stars background -->
-  <canvas id="stars-canvas"></canvas>
+<canvas id="stars-canvas"></canvas>
 
-  <div class="page">
+<div class="page">
 
-    <!-- ── NAV ── -->
-    <nav class="nav">
-      <a class="nav-logo" href="index.html">
-        <div class="nav-logo-dot"></div>
-        PROTEINFOLD-RL
-      </a>
-      <ul class="nav-links">
-        <a href="index.html"     class="active">Home</a>
-        <a href="dashboard.html"            >Dashboard</a>
-        <a href="demo.html"                 >Live Demo</a>
-        <a href="science.html"              >Science</a>
-        <a href="compare.html"              >Compare</a>
-      </ul>
-      <div class="nav-right">NIT Delhi &nbsp;·&nbsp; Open Innovation</div>
-    </nav>
+  <!-- ══ NAV ══ -->
+  <nav class="nav">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-dot"></div>
+      PROTEINFOLD-RL
+    </a>
+    <ul class="nav-links">
+      <a href="index.html"     class="active">Home</a>
+      <a href="dashboard.html"              >Dashboard</a>
+      <a href="demo.html"                   >Live Demo</a>
+      <a href="science.html"                >Science</a>
+      <a href="compare.html"                >Compare</a>
+    </ul>
+    <div class="nav-right"></div>
+  </nav>
 
-    <!-- ── HERO ── -->
-    <section class="hero">
-      <div class="hero-content">
-        <div class="hero-eyebrow">
-          Reinforcement Learning + Graph Neural Networks · Computational Biology
+  <!-- ══ HERO ══ -->
+  <section class="hero">
+
+    <!-- Left: text -->
+    <div class="hero-left">
+      <div class="hero-eyebrow">
+        Reinforcement Learning + Graph Neural Networks · Computational Biology
+      </div>
+
+      <h1 class="hero-h1">
+        AlphaFold shows the <span class="hl">destination.</span>
+      </h1>
+      <h2 class="hero-h1-second">
+        We discover the <span class="hl">journey.</span>
+      </h2>
+
+      <div class="hero-divider"></div>
+
+      <p class="hero-sub">
+        An RL agent that learns <strong>how proteins fold</strong> —
+        not where they end up.<br>
+        Rewarded by the laws of chemistry. No human labels.<br>
+        <strong>Physics is the teacher.</strong>
+      </p>
+
+      <div class="cta-row">
+        <a class="btn-primary" href="dashboard.html">View Dashboard</a>
+        <a class="btn-ghost"   href="science.html">How it works ↗</a>
+      </div>
+
+      <!-- Stats strip inside hero -->
+      <div class="hero-strip">
+        <div class="hero-strip-item">
+          <div class="strip-val"><span class="t">15.920</span> Å</div>
+          <div class="strip-lbl">Trained avg RMSD</div>
         </div>
-        <h1 class="hero-h1">
-          AlphaFold shows<br>
-          the <span class="hl">destination</span>.<br>
-          We discover<br>
-          the journey.
-        </h1>
-        <p class="hero-sub">
-          An RL agent that learns <strong>how proteins fold</strong> —<br>
-          not where they end up.<br>
-          Rewarded by the laws of chemistry.<br>
-          No human labels. <strong>Physics is the teacher.</strong>
-        </p>
-        <div class="cta-row">
-          <a class="btn-primary" href="dashboard.html">View Dashboard</a>
-          <a class="btn-ghost"   href="science.html">How it works ↗</a>
+        <div class="hero-strip-item">
+          <div class="strip-val"><span class="b">+62.8</span> kcal</div>
+          <div class="strip-lbl">Energy gain</div>
         </div>
-      </div>
-
-      <!-- Protein structure illustration -->
-      <div class="hero-visual">
-        <svg class="helix-svg" viewBox="0 0 360 520" fill="none"
-             xmlns="http://www.w3.org/2000/svg">
-
-          <!-- Alpha helix ellipses -->
-          <g opacity="0.9">
-            <ellipse cx="180" cy="72"  rx="56" ry="16"
-                     stroke="#3d9fff" stroke-width="1.2" opacity="0.65"/>
-            <ellipse cx="180" cy="106" rx="62" ry="16"
-                     stroke="#3d9fff" stroke-width="1.2" opacity="0.58"/>
-            <ellipse cx="180" cy="140" rx="58" ry="16"
-                     stroke="#3d9fff" stroke-width="1.2" opacity="0.51"/>
-            <ellipse cx="180" cy="174" rx="60" ry="16"
-                     stroke="#3d9fff" stroke-width="1.2" opacity="0.44"/>
-            <ellipse cx="180" cy="208" rx="56" ry="16"
-                     stroke="#3d9fff" stroke-width="1.2" opacity="0.37"/>
-            <line x1="120" y1="72"  x2="120" y2="208"
-                  stroke="#3d9fff" stroke-width="0.8" opacity="0.2"/>
-            <line x1="240" y1="72"  x2="240" y2="208"
-                  stroke="#3d9fff" stroke-width="0.8" opacity="0.2"/>
-          </g>
-          <text x="66" y="50" font-family="Space Mono,monospace"
-                font-size="9" fill="rgba(61,159,255,0.4)"
-                letter-spacing="2">α-HELIX</text>
-
-          <!-- Beta sheet -->
-          <g opacity="0.6">
-            <rect x="70" y="252" width="220" height="11" rx="2"
-                  fill="rgba(26,80,140,0.55)" stroke="#3d9fff" stroke-width="0.6"/>
-            <rect x="70" y="278" width="220" height="11" rx="2"
-                  fill="rgba(26,80,140,0.55)" stroke="#3d9fff" stroke-width="0.6"/>
-            <rect x="70" y="304" width="220" height="11" rx="2"
-                  fill="rgba(26,80,140,0.55)" stroke="#3d9fff" stroke-width="0.6"/>
-            <polygon points="290,247 310,257.5 290,268"
-                     fill="#3d9fff" opacity="0.7"/>
-            <polygon points="290,273 310,283.5 290,294"
-                     fill="#3d9fff" opacity="0.7"/>
-            <polygon points="290,299 310,309.5 290,320"
-                     fill="#3d9fff" opacity="0.7"/>
-          </g>
-          <text x="66" y="242" font-family="Space Mono,monospace"
-                font-size="9" fill="rgba(61,159,255,0.4)"
-                letter-spacing="2">β-SHEET</text>
-
-          <!-- Loop region -->
-          <path d="M180 336 Q140 358 162 382 Q204 406 180 428"
-                stroke="#3d9fff" stroke-width="1.4" fill="none"
-                stroke-dasharray="5 3" opacity="0.35"/>
-          <text x="66" y="420" font-family="Space Mono,monospace"
-                font-size="9" fill="rgba(61,159,255,0.4)"
-                letter-spacing="2">LOOP</text>
-
-          <!-- Cα nodes -->
-          <g fill="#3d9fff">
-            <circle cx="180" cy="62"  r="3.5" opacity="0.9"/>
-            <circle cx="236" cy="106" r="3"   opacity="0.8"/>
-            <circle cx="124" cy="150" r="3"   opacity="0.7"/>
-            <circle cx="236" cy="194" r="3"   opacity="0.6"/>
-            <circle cx="124" cy="208" r="2.5" opacity="0.5"/>
-            <circle cx="162" cy="382" r="2.5" opacity="0.45"/>
-            <circle cx="180" cy="428" r="2"   opacity="0.35"/>
-          </g>
-
-          <!-- Graph edges between nodes -->
-          <g stroke="#3d9fff" stroke-width="0.5" opacity="0.15">
-            <line x1="180" y1="62"  x2="236" y2="106"/>
-            <line x1="236" y1="106" x2="124" y2="150"/>
-            <line x1="124" y1="150" x2="236" y2="194"/>
-            <line x1="236" y1="194" x2="124" y2="208"/>
-          </g>
-
-        </svg>
-      </div>
-    </section>
-
-    <!-- ── TICKER ── -->
-    <div class="ticker">
-      <div class="ticker-track" id="ticker-track"></div>
-    </div>
-
-    <!-- ── STATS STRIP ── -->
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-num"><span class="acc-t">1.313</span> Å</div>
-        <div class="stat-label">Best RMSD achieved</div>
-        <div class="stat-bar" style="--d:0.10s; --w:82%; background:var(--teal);"></div>
-      </div>
-      <div class="stat">
-        <div class="stat-num"><span class="acc-b">+118</span> kcal</div>
-        <div class="stat-label">Energy improvement vs random</div>
-        <div class="stat-bar" style="--d:0.20s; --w:95%;"></div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">500</div>
-        <div class="stat-label">Training episodes</div>
-        <div class="stat-bar" style="--d:0.30s; --w:100%; background:var(--amber);"></div>
-      </div>
-      <div class="stat">
-        <div class="stat-num"><span class="acc-t">−58%</span></div>
-        <div class="stat-label">RMSD reduction vs random</div>
-        <div class="stat-bar" style="--d:0.40s; --w:58%; background:var(--teal);"></div>
+        <div class="hero-strip-item">
+          <div class="strip-val">500</div>
+          <div class="strip-lbl">Episodes</div>
+        </div>
+        <div class="hero-strip-item">
+          <div class="strip-val"><span class="t">−5.1%</span></div>
+          <div class="strip-lbl">RMSD vs random</div>
+        </div>
       </div>
     </div>
 
-    <!-- ── RL LOOP ── -->
-    <section class="section">
-      <div class="section-label">RL system design — the beating heart</div>
-      <div class="loop-grid">
+    <!-- Right: protein illustration -->
+    <div class="hero-right">
+      <div class="protein-label">Trp-cage · 1L2Y · 20 residues</div>
+      <svg class="helix-svg" viewBox="0 0 260 460" fill="none"
+           xmlns="http://www.w3.org/2000/svg">
+        <!-- Alpha helix -->
+        <text x="20" y="28" font-family="Space Mono,monospace"
+              font-size="8" fill="rgba(61,159,255,0.45)"
+              letter-spacing="2">α-HELIX</text>
+        <g opacity="0.85">
+          <ellipse cx="130" cy="55"  rx="50" ry="13"
+                   stroke="#3d9fff" stroke-width="1.2" opacity="0.7"/>
+          <ellipse cx="130" cy="82"  rx="54" ry="13"
+                   stroke="#3d9fff" stroke-width="1.2" opacity="0.62"/>
+          <ellipse cx="130" cy="109" rx="52" ry="13"
+                   stroke="#3d9fff" stroke-width="1.2" opacity="0.54"/>
+          <ellipse cx="130" cy="136" rx="50" ry="13"
+                   stroke="#3d9fff" stroke-width="1.2" opacity="0.46"/>
+          <ellipse cx="130" cy="163" rx="52" ry="13"
+                   stroke="#3d9fff" stroke-width="1.2" opacity="0.38"/>
+          <line x1="78"  y1="55" x2="78"  y2="163"
+                stroke="#3d9fff" stroke-width="0.7" opacity="0.2"/>
+          <line x1="182" y1="55" x2="182" y2="163"
+                stroke="#3d9fff" stroke-width="0.7" opacity="0.2"/>
+        </g>
 
-        <div class="loop-card" style="--ac:var(--blue);">
-          <div class="loop-idx">01 — State</div>
-          <div class="loop-title">Protein Graph</div>
-          <div class="loop-body">
-            Residues as nodes<br>
-            <span class="hi-b">Node features [N, 23]</span><br>
-            Contact edges [E, 4]<br>
-            8Å distance cutoff<br>
-            + energy history ×5
-          </div>
+        <!-- Beta sheet -->
+        <text x="20" y="218" font-family="Space Mono,monospace"
+              font-size="8" fill="rgba(61,159,255,0.45)"
+              letter-spacing="2">β-SHEET</text>
+        <g opacity="0.62">
+          <rect x="50" y="226" width="160" height="10" rx="2"
+                fill="rgba(20,70,130,0.6)" stroke="#3d9fff" stroke-width="0.6"/>
+          <rect x="50" y="248" width="160" height="10" rx="2"
+                fill="rgba(20,70,130,0.6)" stroke="#3d9fff" stroke-width="0.6"/>
+          <rect x="50" y="270" width="160" height="10" rx="2"
+                fill="rgba(20,70,130,0.6)" stroke="#3d9fff" stroke-width="0.6"/>
+          <polygon points="210,222 226,231 210,240"
+                   fill="#3d9fff" opacity="0.75"/>
+          <polygon points="210,244 226,253 210,262"
+                   fill="#3d9fff" opacity="0.75"/>
+          <polygon points="210,266 226,275 210,284"
+                   fill="#3d9fff" opacity="0.75"/>
+        </g>
+
+        <!-- Loop -->
+        <text x="20" y="340" font-family="Space Mono,monospace"
+              font-size="8" fill="rgba(61,159,255,0.45)"
+              letter-spacing="2">LOOP</text>
+        <path d="M130 298 Q96 318 114 342 Q152 366 130 390"
+              stroke="#3d9fff" stroke-width="1.3" fill="none"
+              stroke-dasharray="5 3" opacity="0.38"/>
+
+        <!-- Cα nodes -->
+        <g fill="#3d9fff">
+          <circle cx="130" cy="46"  r="3.5" opacity="0.9"/>
+          <circle cx="180" cy="82"  r="2.8" opacity="0.8"/>
+          <circle cx="80"  cy="118" r="2.8" opacity="0.7"/>
+          <circle cx="180" cy="154" r="2.8" opacity="0.6"/>
+          <circle cx="80"  cy="163" r="2.4" opacity="0.5"/>
+          <circle cx="114" cy="342" r="2.2" opacity="0.45"/>
+          <circle cx="130" cy="390" r="2"   opacity="0.35"/>
+        </g>
+
+        <!-- Graph edges -->
+        <g stroke="#3d9fff" stroke-width="0.5" opacity="0.12">
+          <line x1="130" y1="46"  x2="180" y2="82"/>
+          <line x1="180" y1="82"  x2="80"  y2="118"/>
+          <line x1="80"  y1="118" x2="180" y2="154"/>
+        </g>
+
+        <!-- Energy label -->
+        <rect x="20" y="415" width="220" height="32" rx="2"
+              fill="rgba(61,159,255,0.05)" stroke="rgba(61,159,255,0.15)"
+              stroke-width="0.5"/>
+        <text x="32" y="429" font-family="Space Mono,monospace"
+              font-size="8" fill="rgba(61,159,255,0.4)"
+              letter-spacing="1">BEST ENERGY</text>
+        <text x="32" y="441" font-family="Space Mono,monospace"
+              font-size="9" fill="rgba(0,212,170,0.7)"
+              font-weight="700" letter-spacing="1">54.430 kcal/mol</text>
+      </svg>
+      <div class="protein-label">Cα graph · 8Å contact edges</div>
+    </div>
+
+  </section>
+
+  <!-- ══ TICKER ══ -->
+  <div class="ticker">
+    <div class="ticker-track" id="ticker-track"></div>
+  </div>
+
+  <!-- ══ RL LOOP ══ -->
+  <section class="section">
+    <div class="section-label">RL system design — state · action · reward · policy</div>
+    <div class="loop-grid">
+
+      <div class="loop-card" style="--ac:var(--blue);">
+        <div class="loop-top-bar"></div>
+        <div class="loop-idx">01 — State</div>
+        <div class="loop-title">Protein Graph</div>
+        <div class="loop-row">
+          <span class="loop-key">Nodes</span>
+          <span class="loop-val c-b">[N, 23] features</span>
         </div>
-
-        <div class="loop-card" style="--ac:var(--teal);">
-          <div class="loop-idx">02 — Action</div>
-          <div class="loop-title">Dihedral Angles</div>
-          <div class="loop-body">
-            <span class="hi-t">N × 2 × 12</span> discrete<br>
-            φ/ψ backbone angles<br>
-            30° per increment<br>
-            NeRF kinematic chain<br>
-            Clash-safe reverts
-          </div>
+        <div class="loop-row">
+          <span class="loop-key">Edges</span>
+          <span class="loop-val c-w">[E, 4] contacts</span>
         </div>
-
-        <div class="loop-card" style="--ac:var(--red);">
-          <div class="loop-idx">03 — Reward</div>
-          <div class="loop-title">Physics Signal</div>
-          <div class="loop-body">
-            <span class="hi-t">+8.0</span> big energy drop<br>
-            <span class="hi-b">+2.0</span> small energy drop<br>
-            <span class="hi-t">+15.0</span> RMSD &lt; 2Å bonus<br>
-            <span class="hi-r">−2.0</span> steric clash<br>
-            <span class="hi-r">−0.3</span> step penalty
-          </div>
+        <div class="loop-row">
+          <span class="loop-key">Cutoff</span>
+          <span class="loop-val c-w">8 Å distance</span>
         </div>
-
-        <div class="loop-card" style="--ac:var(--amber);">
-          <div class="loop-idx">04 — Policy</div>
-          <div class="loop-title">GNN + PPO</div>
-          <div class="loop-body">
-            NodeEncoder 23→128<br>
-            <span class="hi-a">4-layer MPNN</span> → 256d<br>
-            PPO-clip ε = 0.2<br>
-            GAE λ = 0.95<br>
-            AdamW lr = 3e-4
-          </div>
+        <div class="loop-row">
+          <span class="loop-key">Extra</span>
+          <span class="loop-val c-w">energy history ×5</span>
         </div>
-
       </div>
-    </section>
 
-    <!-- ── COMPARISON ── -->
-    <section class="section" style="padding-top:0;">
-      <div class="section-label">
-        evaluation results — Trp-cage 1L2Y · 20 episodes each
+      <div class="loop-card" style="--ac:var(--teal);">
+        <div class="loop-top-bar"></div>
+        <div class="loop-idx">02 — Action</div>
+        <div class="loop-title">Dihedral Angles</div>
+        <div class="loop-row">
+          <span class="loop-key">Space</span>
+          <span class="loop-val c-t">N × 2 × 12</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">Angles</span>
+          <span class="loop-val c-w">φ / ψ backbone</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">Step</span>
+          <span class="loop-val c-w">30° per increment</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">Chain</span>
+          <span class="loop-val c-w">NeRF kinematics</span>
+        </div>
       </div>
-      <div class="cmp-grid">
 
-        <div class="cmp-card">
-          <div class="cmp-lbl">Average RMSD — lower is better</div>
+      <div class="loop-card" style="--ac:var(--red);">
+        <div class="loop-top-bar"></div>
+        <div class="loop-idx">03 — Reward</div>
+        <div class="loop-title">Physics Signal</div>
+        <div class="loop-row">
+          <span class="loop-key">Big drop</span>
+          <span class="loop-val c-t">+8.0</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">Small drop</span>
+          <span class="loop-val c-b">+2.0</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">RMSD &lt;2Å</span>
+          <span class="loop-val c-t">+15.0 bonus</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">Clash</span>
+          <span class="loop-val c-r">−2.0</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">Step</span>
+          <span class="loop-val c-r">−0.3 penalty</span>
+        </div>
+      </div>
+
+      <div class="loop-card" style="--ac:var(--amber);">
+        <div class="loop-top-bar"></div>
+        <div class="loop-idx">04 — Policy</div>
+        <div class="loop-title">GNN + PPO</div>
+        <div class="loop-row">
+          <span class="loop-key">Encoder</span>
+          <span class="loop-val c-w">23 → 128 dim</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">MPNN</span>
+          <span class="loop-val c-a">4 layers → 256d</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">PPO ε</span>
+          <span class="loop-val c-w">0.2 clip</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">GAE λ</span>
+          <span class="loop-val c-w">0.95</span>
+        </div>
+        <div class="loop-row">
+          <span class="loop-key">LR</span>
+          <span class="loop-val c-w">3e-4 AdamW</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ COMPARISON ══ -->
+  <section class="section" style="padding-top:0;">
+    <div class="section-label">
+      evaluation — Trp-cage 1L2Y · 20 episodes each · trained vs random
+    </div>
+    <div class="cmp-grid">
+
+      <div class="cmp-card">
+        <div class="cmp-header">
+          <div class="cmp-title">Average RMSD — lower is better</div>
+          <div class="cmp-badge">Å</div>
+        </div>
+        <div class="bar-group">
           <div class="bar-row">
             <div class="bar-name">Random</div>
             <div class="bar-track">
               <div class="bar-fill"
                    style="--w:100%; background:var(--red);"></div>
             </div>
-            <div class="bar-val">7.637 Å</div>
+            <div class="bar-val">16.775 Å</div>
           </div>
           <div class="bar-row">
             <div class="bar-name">Trained</div>
             <div class="bar-track">
               <div class="bar-fill"
-                   style="--w:41%; background:var(--blue);"></div>
+                   style="--w:95%; background:var(--blue);"></div>
             </div>
-            <div class="bar-val">3.145 Å</div>
-          </div>
-          <div class="cmp-result">
-            <div class="cmp-big">−58%</div>
-            <div class="cmp-sub">RMSD reduction vs random baseline</div>
+            <div class="bar-val">15.920 Å</div>
           </div>
         </div>
+        <div class="cmp-result">
+          <div class="cmp-big">−5.1%</div>
+          <div class="cmp-sub">RMSD reduction<br>vs random baseline</div>
+        </div>
+      </div>
 
-        <div class="cmp-card">
-          <div class="cmp-lbl">Average energy — lower is better (kcal/mol)</div>
+      <div class="cmp-card">
+        <div class="cmp-header">
+          <div class="cmp-title">Average energy — lower is better</div>
+          <div class="cmp-badge">kcal/mol</div>
+        </div>
+        <div class="bar-group">
           <div class="bar-row">
             <div class="bar-name">Random</div>
             <div class="bar-track">
               <div class="bar-fill"
                    style="--w:100%; background:var(--red);"></div>
             </div>
-            <div class="bar-val">267 kcal</div>
+            <div class="bar-val">117.258 kcal</div>
           </div>
           <div class="bar-row">
             <div class="bar-name">Trained</div>
             <div class="bar-track">
               <div class="bar-fill"
-                   style="--w:56%; background:var(--blue);"></div>
+                   style="--w:46%; background:var(--blue);"></div>
             </div>
-            <div class="bar-val">149 kcal</div>
-          </div>
-          <div class="cmp-result">
-            <div class="cmp-big">+118</div>
-            <div class="cmp-sub">kcal/mol improvement over random agent</div>
+            <div class="bar-val">54.430 kcal</div>
           </div>
         </div>
-
+        <div class="cmp-result">
+          <div class="cmp-big">+62.8</div>
+          <div class="cmp-sub">kcal/mol improvement<br>over random agent</div>
+        </div>
       </div>
-    </section>
 
-    <!-- ── PASS BADGE ── -->
-    <div class="pass-row">
-      <div class="pass-dot"></div>
-      <div class="pass-text">
-        [PASS] · Trained agent outperforms random on all metrics ·
-        Best RMSD 1.313 Å — below 2Å native-structure threshold ✓ ·
-        CHECKPOINT-07 COMPLETE
+    </div>
+  </section>
+
+  <!-- ══ PASS BADGE ══ -->
+  <div class="pass-row">
+    <div class="pass-dot"></div>
+    <div class="pass-text">
+      [PASS] · Trained agent outperforms random on all metrics ·
+      Energy improvement −62.8 kcal/mol (−53.6%) · RMSD improvement −0.855 Å (−5.1%) ·
+      CHECKPOINT-07 COMPLETE
+    </div>
+  </div>
+
+  <!-- ══ TECH STACK ══ -->
+  <section class="section">
+    <div class="section-label">technology stack</div>
+    <div class="stack-grid">
+      <div class="stack-item">
+        <div class="stack-name">PyTorch 2.6</div>
+        <div class="stack-role">Deep learning</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">PyG 2.7</div>
+        <div class="stack-role">Graph neural nets</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">Gymnasium</div>
+        <div class="stack-role">RL environment</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">BioPython</div>
+        <div class="stack-role">PDB parsing</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">FastAPI</div>
+        <div class="stack-role">REST backend</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">Gradio</div>
+        <div class="stack-role">Live demo UI</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">PPO-clip</div>
+        <div class="stack-role">RL algorithm</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">NeRF kinematics</div>
+        <div class="stack-role">Chain propagation</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">Lennard-Jones</div>
+        <div class="stack-role">Energy function</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">MPNN × 4</div>
+        <div class="stack-role">Message passing</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">1L2Y Trp-cage</div>
+        <div class="stack-role">20 residue protein</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-name">1YRF Villin</div>
+        <div class="stack-role">35 residue protein</div>
       </div>
     </div>
+  </section>
 
-    <!-- ── TECH STACK ── -->
-    <section class="section">
-      <div class="section-label">technology stack</div>
-      <div class="stack-row">
-        <span class="tag">PyTorch 2.6</span>
-        <span class="tag">PyTorch Geometric 2.7</span>
-        <span class="tag">Gymnasium</span>
-        <span class="tag">BioPython</span>
-        <span class="tag">Gradio</span>
-        <span class="tag">FastAPI</span>
-        <span class="tag">PPO-clip</span>
-        <span class="tag">GAE λ=0.95</span>
-        <span class="tag">NeRF kinematics</span>
-        <span class="tag">Lennard-Jones potential</span>
-        <span class="tag">MPNN × 4 layers</span>
-        <span class="tag">1L2Y Trp-cage</span>
-        <span class="tag">1YRF Villin</span>
-      </div>
-    </section>
+  <!-- ══ FOOTER ══ -->
+  <footer class="footer">
+    <div class="footer-l">
+      ProteinFold-RL · NIT Delhi · Open Innovation Track · 2025
+    </div>
+    <div class="footer-r">index.html · page 1 of 5</div>
+  </footer>
 
-    <!-- ── FOOTER ── -->
-    <footer class="footer">
-      <div class="footer-l">
-        ProteinFold-RL · NIT Delhi · Open Innovation Track · 2025
-      </div>
-      <div class="footer-r">index.html · page 1 of 5</div>
-    </footer>
+</div>
 
-  </div><!-- end .page -->
-
-  <!-- Scripts -->
-  <script src="assets/js/stars.js"></script>
-  <script src="assets/js/ticker.js"></script>
-  <script>
-    initStarfield();
-    initTicker();
-  </script>
+<script src="assets/js/stars.js"></script>
+<script src="assets/js/ticker.js"></script>
+<script>
+  initStarfield();
+  initTicker();
+</script>
 
 </body>
 </html>

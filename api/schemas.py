@@ -118,6 +118,9 @@ class FoldResponse(BaseModel):
     final_energy     : float = Field(description="Energy at last step (kcal/mol).")
     energy_drop      : float = Field(description="initial_energy − final_energy.")
     final_rmsd       : float = Field(description="RMSD vs native at last step (Å).")
+    energy_curve: List[List[float]] = Field(
+        description="Per-step [step, energy] pairs for the frontend chart."
+    )
     best_rmsd        : float = Field(description="Lowest RMSD achieved during run (Å).")
     trajectory       : List[StepSnapshot] = Field(
         description="Per-step energy/RMSD/clash/reward snapshots."

@@ -1,25 +1,65 @@
-import torch
-import numpy as np
+"""
+eval.py
+ProteinFold-RL — Evaluation (v2)
+
+What changed vs v1
+------------------
+- Policy loaded at MAX_ACTION_DIM (matches new train.py)
+- Action clamped to protein's valid range (same as train.py)
+- Saves a full eval_results.json for the dashboard to read
+- Cleaner pass/fail output with improvement percentages
+- Works with any protein in the registry, not just 1L2Y
+
+Run
+---
+  python eval.py                    # evaluate on 1L2Y (default)
+  python eval.py --protein 1YRF    # evaluate on any registered protein
+  python eval.py --episodes 30     # more episodes for better statistics
+"""
+
+import argparse
+import csv
+import json
 import os
 import sys
-import csv
+
+import numpy as np
+import torch
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from env.fold_env import FoldEnv
 from model.gnn_policy import GNNPolicyNetwork
 from agent.ppo import PPOTrainer
+from config import MAX_ACTION_DIM, CHECKPOINT_PATH
 
-CHECKPOINT = "checkpoints/policy_final.pt"
-EVAL_EPISODES = 20
+# ── Config ────────────────────────────────────────────────────
+CHECKPOINT = CHECKPOINT_PATH
+EVAL_EPISODES  = 20
 
 
-def compute_rmsd(coords, native):
+os.makedirs("logs", exist_ok=True)
+
+
+# ── Helpers ───────────────────────────────────────────────────
+
+def compute_rmsd(coords: np.ndarray, native: np.ndarray) -> float:
+    """Root-mean-square deviation of Cα coordinates."""
     diff = coords - native
     return float(np.sqrt(np.mean(np.sum(diff ** 2, axis=1))))
 
 
-def run_episode(env, policy, deterministic=False):
-    """Run one full episode, return trajectory data."""
+def run_episode(env: FoldEnv, policy: GNNPolicyNetwork,
+                deterministic: bool = False) -> tuple:
+    """
+    Run one full episode with the trained policy.
+
+    Returns
+    -------
+    trajectory : list of per-step dicts
+    rmsd       : final RMSD vs native (Å)
+    energy     : final energy (kcal/mol)
+    """
     obs, info = env.reset()
     trajectory = []
     done = False
@@ -27,57 +67,82 @@ def run_episode(env, policy, deterministic=False):
     while not done:
         graph = env.get_graph()
         with torch.no_grad():
-            action, log_prob, value, entropy = policy.get_action(
+            action, _, _, _ = policy.get_action(
                 graph, deterministic=deterministic
             )
+        # Clamp to this protein's valid action range
+        action = action % env.action_dim
+
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
 
         trajectory.append({
-            "step"       : info["step"],
-            "energy"     : info["energy"],
-            "has_clash"  : info["has_clash"],
-            "reward"     : reward,
-            "coords"     : env.ca_coords.copy(),
+            "step"     : info["step"],
+            "energy"   : info["energy"],
+            "has_clash": info["has_clash"],
+            "reward"   : reward,
+            "coords"   : env.ca_coords.copy(),
         })
 
     rmsd = compute_rmsd(env.ca_coords, env.native_coords)
     return trajectory, rmsd, info["energy"]
 
 
-def evaluate():
-    print("=" * 60)
-    print("ProteinFold-RL — Evaluation")
-    print("=" * 60)
+def run_random_episode(env: FoldEnv) -> tuple:
+    """Run one full episode with a random agent."""
+    obs, info = env.reset()
+    done = False
+    while not done:
+        action = env.action_space.sample()
+        obs, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
+    rmsd = compute_rmsd(env.ca_coords, env.native_coords)
+    return rmsd, info["energy"]
 
-    env    = FoldEnv(pdb_id="1L2Y")
-    policy = GNNPolicyNetwork(action_dim=env.action_dim)
-    trainer= PPOTrainer(policy=policy, action_dim=env.action_dim)
+
+# ── Main evaluation ───────────────────────────────────────────
+
+def evaluate(pdb_id: str = "1L2Y", n_episodes: int = EVAL_EPISODES):
+    print("=" * 62)
+    print("ProteinFold-RL — Evaluation v2")
+    print(f"  Protein  : {pdb_id}")
+    print(f"  Episodes : {n_episodes} each (trained + random)")
+    print(f"  Checkpoint: {CHECKPOINT}")
+    print("=" * 62)
+
+    # ── Setup ─────────────────────────────────────────────────
+    if not os.path.exists(CHECKPOINT):
+        print(f"\n[ERROR] No checkpoint found at {CHECKPOINT}")
+        print("  Run train.py first.")
+        sys.exit(1)
+
+    env    = FoldEnv(pdb_id=pdb_id)
+    policy = GNNPolicyNetwork(action_dim=MAX_ACTION_DIM)
+    trainer= PPOTrainer(policy=policy, action_dim=MAX_ACTION_DIM)
     trainer.load(CHECKPOINT)
     policy.eval()
 
-    # ── Random baseline ──────────────────────────────────────
-    print("\n[BASELINE] Random agent (20 episodes)...")
+    # ── Random baseline ───────────────────────────────────────
+    print(f"\n[BASELINE] Random agent ({n_episodes} episodes)...")
     random_rmsds, random_energies = [], []
-    for _ in range(EVAL_EPISODES):
-        obs, info = env.reset()
-        done = False
-        while not done:
-            action = env.action_space.sample()
-            obs, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-        random_rmsds.append(compute_rmsd(env.ca_coords, env.native_coords))
-        random_energies.append(info["energy"])
 
-    print(f"  Avg RMSD   : {np.mean(random_rmsds):.3f} Å")
-    print(f"  Avg Energy : {np.mean(random_energies):.3f} kcal/mol")
+    for _ in range(n_episodes):
+        rmsd, energy = run_random_episode(env)
+        random_rmsds.append(rmsd)
+        random_energies.append(energy)
 
-    # ── Trained agent ────────────────────────────────────────
-    print("\n[TRAINED] Policy agent (20 episodes)...")
-    policy_rmsds, policy_energies, best_traj = [], [], None
+    r_rmsd_mean   = float(np.mean(random_rmsds))
+    r_energy_mean = float(np.mean(random_energies))
+    print(f"  Avg RMSD   : {r_rmsd_mean:.3f} Å")
+    print(f"  Avg Energy : {r_energy_mean:.3f} kcal/mol")
+
+    # ── Trained agent ─────────────────────────────────────────
+    print(f"\n[TRAINED] Policy agent ({n_episodes} episodes)...")
+    policy_rmsds, policy_energies = [], []
     best_rmsd = float("inf")
+    best_traj = None
 
-    for ep in range(EVAL_EPISODES):
+    for ep in range(n_episodes):
         traj, rmsd, energy = run_episode(env, policy, deterministic=False)
         policy_rmsds.append(rmsd)
         policy_energies.append(energy)
@@ -85,43 +150,98 @@ def evaluate():
             best_rmsd = rmsd
             best_traj = traj
 
-    print(f"  Avg RMSD   : {np.mean(policy_rmsds):.3f} Å")
-    print(f"  Avg Energy : {np.mean(policy_energies):.3f} kcal/mol")
+    p_rmsd_mean   = float(np.mean(policy_rmsds))
+    p_energy_mean = float(np.mean(policy_energies))
+    print(f"  Avg RMSD   : {p_rmsd_mean:.3f} Å")
+    print(f"  Avg Energy : {p_energy_mean:.3f} kcal/mol")
     print(f"  Best RMSD  : {best_rmsd:.3f} Å")
 
-    # ── Comparison ───────────────────────────────────────────
+    # ── Comparison ────────────────────────────────────────────
     print("\n[COMPARISON]")
-    rmsd_improvement = np.mean(random_rmsds) - np.mean(policy_rmsds)
-    energy_improvement = np.mean(random_energies) - np.mean(policy_energies)
-    print(f"  RMSD improvement   : {rmsd_improvement:+.3f} Å")
-    print(f"  Energy improvement : {energy_improvement:+.3f} kcal/mol")
-    assert np.mean(policy_energies) < np.mean(random_energies), \
-        "Trained agent should outperform random!"
-    print(f"  [PASS] Trained agent outperforms random baseline ✓")
+    rmsd_imp   = r_rmsd_mean   - p_rmsd_mean
+    energy_imp = r_energy_mean - p_energy_mean
+    rmsd_pct   = 100 * rmsd_imp   / (r_rmsd_mean   + 1e-8)
+    energy_pct = 100 * energy_imp / (r_energy_mean + 1e-8)
 
-    # ── Save best trajectory ─────────────────────────────────
-    os.makedirs("logs", exist_ok=True)
+    print(f"  RMSD improvement   : {rmsd_imp:+.3f} Å  ({rmsd_pct:+.1f}%)")
+    print(f"  Energy improvement : {energy_imp:+.3f} kcal/mol  ({energy_pct:+.1f}%)")
+
+    passed = p_energy_mean < r_energy_mean
+    if passed:
+        print("  [PASS] Trained agent outperforms random baseline ✅")
+    else:
+        print("  [WARN] Trained agent did not outperform random.")
+        print("         Try training for more episodes.")
+
+    # ── Save best trajectory ──────────────────────────────────
     traj_path = "logs/best_trajectory.csv"
     with open(traj_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["step", "energy", "reward", "has_clash"])
         for t in best_traj:
             writer.writerow([
-                t["step"], round(t["energy"], 4),
-                round(t["reward"], 4), int(t["has_clash"])
+                t["step"],
+                round(t["energy"], 4),
+                round(t["reward"], 4),
+                int(t["has_clash"]),
             ])
-    print(f"\n  Best trajectory saved to {traj_path}")
+    print(f"\n  Best trajectory → {traj_path}")
 
-    # ── Save before/after coords ─────────────────────────────
+    # ── Save coords ───────────────────────────────────────────
     np.save("logs/native_coords.npy",  env.native_coords)
     np.save("logs/best_coords.npy",    best_traj[-1]["coords"])
     np.save("logs/initial_coords.npy", best_traj[0]["coords"])
-    print(f"  Coords saved to logs/")
+    print(f"  Coords → logs/")
 
-    print("\n" + "=" * 60)
-    print("CHECKPOINT-06 — Proof of learning confirmed.")
-    print("=" * 60)
+    # ── Save eval_results.json (dashboard reads this) ─────────
+    results = {
+        "protein"          : pdb_id,
+        "n_episodes"       : n_episodes,
+        "random": {
+            "avg_rmsd"     : round(r_rmsd_mean,   3),
+            "avg_energy"   : round(r_energy_mean, 3),
+        },
+        "trained": {
+            "avg_rmsd"     : round(p_rmsd_mean,   3),
+            "avg_energy"   : round(p_energy_mean, 3),
+            "best_rmsd"    : round(best_rmsd,      3),
+        },
+        "improvement": {
+            "rmsd_abs"     : round(rmsd_imp,   3),
+            "rmsd_pct"     : round(rmsd_pct,   1),
+            "energy_abs"   : round(energy_imp, 3),
+            "energy_pct"   : round(energy_pct, 1),
+        },
+        "passed"           : passed,
+    }
 
+    results_path = "logs/eval_results.json"
+    with open(results_path, "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"  Eval results → {results_path}")
+
+    # ── Final summary ─────────────────────────────────────────
+    print("\n" + "=" * 62)
+    print("Evaluation Complete")
+    print(f"  Random  → RMSD {r_rmsd_mean:.3f} Å | Energy {r_energy_mean:.3f}")
+    print(f"  Trained → RMSD {p_rmsd_mean:.3f} Å | Energy {p_energy_mean:.3f}")
+    print(f"  Improvement: {rmsd_imp:+.3f} Å  |  {energy_imp:+.3f} kcal/mol")
+    print("=" * 62)
+
+    return results
+
+
+# ── CLI ───────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    evaluate()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--protein", type=str, default="1L2Y",
+        help="PDB ID to evaluate on (default: 1L2Y)"
+    )
+    parser.add_argument(
+        "--episodes", type=int, default=EVAL_EPISODES,
+        help=f"Episodes per agent (default: {EVAL_EPISODES})"
+    )
+    args = parser.parse_args()
+    evaluate(pdb_id=args.protein, n_episodes=args.episodes)

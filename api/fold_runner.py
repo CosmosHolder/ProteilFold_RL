@@ -11,6 +11,7 @@ Author : ProteinFold-RL team
 
 from __future__ import annotations
 
+import types
 import uuid
 import logging
 from typing import List, Tuple
@@ -90,6 +91,172 @@ def _compute_rmsd(coords: np.ndarray, native: np.ndarray) -> float:
 
 
 # ── Core inference function ────────────────────────────────────
+def build_custom_env(sequence: str) -> FoldEnv:
+    """
+    Build a minimal FoldEnv-like object for a custom sequence.
+    Uses extended chain initialization (Option A):
+    all Cα atoms placed in a straight line, 3.8Å apart.
+    No native structure available — RMSD will return 0.0.
+    """
+    import torch
+    from torch_geometric.data import Data
+    from env.energy import compute_energy
+    from env.fold_env import (
+        N_ANGLES, N_INCREMENTS, MAX_STEPS,
+        MAX_CLASHES, ENERGY_CONVERGE,
+    )
+
+    N = len(sequence)
+    BOND_LENGTH = 3.8
+
+    # Extended chain coordinates — straight line along x-axis
+    ca_coords = np.array(
+        [[i * BOND_LENGTH, 0.0, 0.0] for i in range(N)],
+        dtype=np.float32,
+    )
+
+    # Random backbone angles (unfolded-like)
+    phi_angles = np.random.uniform(-np.pi, np.pi, N)
+    psi_angles = np.random.uniform(-np.pi, np.pi, N)
+
+    # One-hot encode the sequence
+    aa_onehot = np.zeros((N, 20), dtype=np.float32)
+    for i, aa in enumerate(sequence):
+        idx = _AA_ALPHABET.find(aa)
+        if idx >= 0:
+            aa_onehot[i, idx] = 1.0
+
+    # Build PyG graph
+    coords_t = torch.tensor(ca_coords, dtype=torch.float)
+    aa_t     = torch.tensor(aa_onehot, dtype=torch.float)
+    x        = torch.cat([aa_t, coords_t], dim=1)  # [N, 23]
+
+    edge_src, edge_dst, edge_attrs = [], [], []
+    for i in range(N):
+        for j in range(N):
+            if i == j:
+                continue
+            diff = ca_coords[j] - ca_coords[i]
+            dist = float(np.linalg.norm(diff))
+            if dist <= 8.0:
+                is_peptide = 1.0 if abs(i - j) == 1 else 0.0
+                dn = diff / (dist + 1e-8)
+                edge_src.append(i)
+                edge_dst.append(j)
+                edge_attrs.append([dist, dn[0], dn[1], is_peptide])
+
+    edge_index = torch.tensor([edge_src, edge_dst], dtype=torch.long)
+    edge_attr  = torch.tensor(edge_attrs, dtype=torch.float)
+    graph      = Data(
+        x=x, edge_index=edge_index,
+        edge_attr=edge_attr, pos=coords_t, num_nodes=N,
+    )
+
+    # Build a lightweight namespace that mimics FoldEnv's interface
+    env             = types.SimpleNamespace()
+    env.N           = N
+    env.action_dim  = N * N_ANGLES * N_INCREMENTS
+    env.ca_coords   = ca_coords
+    env.phi_angles  = phi_angles
+    env.psi_angles  = psi_angles
+    env.native_coords = ca_coords.copy()  # no native — use initial as ref
+    env.current_energy = float(compute_energy(
+        ca_coords, phi_angles, psi_angles
+    ))
+    env.energy_history = np.full(5, env.current_energy, dtype=np.float32)
+    env.step_count  = 0
+    env.clash_count = 0
+    env.graph       = graph
+    env.sequence    = sequence
+
+    # Attach get_graph method
+    env.get_graph = lambda: env.graph
+
+    # Attach step() method — mirrors FoldEnv.step() logic
+    def _step(action: int):
+        from env.fold_env import (
+            N_INCREMENTS, N_ANGLES, ANGLE_STEP,
+            R_STEP_PENALTY, R_NO_CLASH, R_ENERGY_BIG,
+            R_ENERGY_SMALL, R_ENERGY_UP, ENERGY_DROP_BIG,
+            MAX_STEPS, MAX_CLASHES,
+        )
+        from env.clash_detect import detect_clashes
+        from env.energy import compute_energy, compute_energy_delta
+
+        increment = action % N_INCREMENTS
+        remainder = action // N_INCREMENTS
+        angle_type = remainder % N_ANGLES
+        residue_idx = min(remainder // N_ANGLES, env.N - 1)
+
+        old_phi = env.phi_angles.copy()
+        old_psi = env.psi_angles.copy()
+
+        delta = ANGLE_STEP * (increment - N_INCREMENTS // 2)
+        if angle_type == 0:
+            env.phi_angles[residue_idx] += delta
+            env.phi_angles[residue_idx] = float(
+                (env.phi_angles[residue_idx] + np.pi) % (2 * np.pi) - np.pi
+            )
+        else:
+            env.psi_angles[residue_idx] += delta
+            env.psi_angles[residue_idx] = float(
+                (env.psi_angles[residue_idx] + np.pi) % (2 * np.pi) - np.pi
+            )
+
+        clash_result = detect_clashes(env.ca_coords)
+        has_clash = clash_result["has_clash"]
+
+        if has_clash:
+            env.clash_count += 1
+            env.phi_angles = old_phi
+            env.psi_angles = old_psi
+
+        new_energy = compute_energy(
+            env.ca_coords, env.phi_angles, env.psi_angles
+        )
+        energy_delta = compute_energy_delta(env.current_energy, new_energy)
+
+        reward = R_STEP_PENALTY
+        if has_clash:
+            reward += -2.0
+        else:
+            reward += R_NO_CLASH
+            if energy_delta < -ENERGY_DROP_BIG:
+                reward += R_ENERGY_BIG
+            elif energy_delta < 0:
+                reward += R_ENERGY_SMALL
+            else:
+                reward += R_ENERGY_UP
+
+        if not has_clash:
+            env.current_energy = new_energy
+
+        env.energy_history = np.roll(env.energy_history, -1)
+        env.energy_history[-1] = env.current_energy
+        env.step_count += 1
+
+        converged = (
+                len(set(np.round(env.energy_history, 3))) == 1
+                and env.step_count > 5
+        )
+        terminated = (
+                env.step_count >= MAX_STEPS or
+                env.clash_count >= MAX_CLASHES or
+                converged
+        )
+
+        info = {
+            "energy": env.current_energy,
+            "energy_delta": energy_delta,
+            "step": env.step_count,
+            "clash_count": env.clash_count,
+            "has_clash": has_clash,
+        }
+        return {}, reward, terminated, False, info
+
+    env.step = _step
+
+    return env
 
 def run_fold(
     request: FoldRequest,
@@ -117,16 +284,26 @@ def run_fold(
     )
 
     # ── Reset environment ──────────────────────────────────────
-    obs, info = env.reset()
+    # Custom envs (SimpleNamespace) don't have .reset() — skip it
+    if hasattr(env, 'reset'):
+        obs, info = env.reset()
 
     # ── Capture initial state ──────────────────────────────────
-    seq             = _decode_sequence_from_graph(env)
-    initial_coords  = env.ca_coords.copy()
-    initial_energy  = float(env.current_energy)
-    initial_rmsd    = _compute_rmsd(initial_coords, env.native_coords)
+    # Custom sequence: use sequence directly from request
+    # Known protein: decode from graph node features
+    if request.sequence:
+        seq = request.sequence
+    else:
+        seq = _decode_sequence_from_graph(env)
+
+    initial_coords = env.ca_coords.copy()
+    initial_energy = float(env.current_energy)
+    initial_rmsd = _compute_rmsd(initial_coords, env.native_coords)
 
     initial_pdb = coords_to_pdb_string(initial_coords, seq)
-    native_pdb  = coords_to_pdb_string(env.native_coords, seq)
+    # No native structure for custom sequences
+    native_pdb = coords_to_pdb_string(env.native_coords, seq) \
+        if not request.sequence else ""
 
     # ── Trajectory containers ──────────────────────────────────
     trajectory: List[StepSnapshot] = []
@@ -202,6 +379,7 @@ def run_fold(
         final_rmsd=round(final_rmsd, 4),
         best_rmsd=round(best_rmsd, 4),
         trajectory=trajectory,
+        energy_curve=[[t.step, t.energy] for t in trajectory],
         initial_pdb=initial_pdb,
         final_pdb=final_pdb,
         native_pdb=native_pdb,

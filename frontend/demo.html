@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProteinFold-RL — Live Demo</title>
+  <link rel="stylesheet" href="assets/css/design-system.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+
+    /* ══════════════════════════════════════════
+       PAGE HEADER
+    ══════════════════════════════════════════ */
+    .demo-header {
+      padding: 2.5rem 2.5rem 2rem;
+      border-bottom: 0.5px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .demo-title-group {}
+    .demo-eyebrow {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(61,159,255,0.4);
+      margin-bottom: 0.5rem;
+    }
+    .demo-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #eaf4ff;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 0.5rem;
+    }
+    .demo-subtitle {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Health indicator ── */
+    .health-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .health-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      padding: 6px 14px;
+      border: 0.5px solid var(--border-hi);
+      color: var(--text-dim);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+    .health-badge.online  {
+      border-color: rgba(0,212,170,0.35);
+      color: var(--teal);
+    }
+    .health-badge.offline {
+      border-color: rgba(255,95,95,0.35);
+      color: var(--red);
+    }
+    .health-badge.loading {
+      border-color: rgba(255,179,71,0.35);
+      color: var(--amber);
+    }
+    .health-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .health-badge.online  .health-dot { animation: pass-pulse 2s ease-in-out infinite; }
+    .health-badge.loading .health-dot { animation: nav-blink 1s ease-in-out infinite; }
+    .health-meta {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-align: right;
+      line-height: 1.8;
+    }
+
+    /* ══════════════════════════════════════════
+       MAIN LAYOUT — 2 column
+    ══════════════════════════════════════════ */
+    .demo-body {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      min-height: calc(100vh - 56px - 120px);
+    }
+
+    /* ── Left panel: controls ── */
+    .demo-controls {
+      border-right: 0.5px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ctrl-section {
+      padding: 1.5rem;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .ctrl-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(61,159,255,0.4);
+      margin-bottom: 1rem;
+    }
+
+    /* Protein selector */
+    .protein-options {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border: 0.5px solid var(--border);
+    }
+    .protein-opt {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 1rem 1.25rem;
+      background: var(--bg3);
+      cursor: pointer;
+      transition: background 0.15s;
+      border: none;
+      width: 100%;
+      text-align: left;
+    }
+    .protein-opt:hover    { background: rgba(61,159,255,0.06); }
+    .protein-opt.selected { background: rgba(61,159,255,0.1); }
+    .protein-opt.selected .opt-radio { border-color: var(--blue); background: var(--blue); }
+    .opt-radio {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      border: 0.5px solid var(--border-hi);
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .opt-info { flex: 1; }
+    .opt-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-mid);
+      letter-spacing: 0.06em;
+      margin-bottom: 2px;
+    }
+    .opt-desc {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+    .opt-badge {
+      font-family: var(--mono);
+      font-size: 8px;
+      padding: 2px 7px;
+      border: 0.5px solid rgba(61,159,255,0.2);
+      color: var(--blue);
+      letter-spacing: 0.08em;
+    }
+
+    /* Steps slider */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .slider-lbl {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      width: 40px;
+    }
+    .slider-val {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--blue);
+      width: 36px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 3px;
+      background: rgba(61,159,255,0.15);
+      outline: none;
+      border-radius: 0;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--blue);
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--blue);
+      cursor: pointer;
+      border: none;
+    }
+    .slider-hint {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+    }
+
+    /* Run button */
+    .run-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--blue);
+      color: #020c18;
+      border: none;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .run-btn:hover:not(:disabled) { background: #72baff; }
+    .run-btn:disabled {
+      background: rgba(61,159,255,0.2);
+      color: var(--text-dim);
+      cursor: not-allowed;
+    }
+    .run-btn.running {
+      background: rgba(61,159,255,0.15);
+      color: var(--blue);
+      cursor: not-allowed;
+    }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(61,159,255,0.3);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .run-btn.running .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Live stats inside controls */
+    .live-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border: 0.5px solid var(--border);
+    }
+    .live-stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1rem;
+      background: var(--bg3);
+    }
+    .ls-key {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .ls-val {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-mid);
+      letter-spacing: 0.04em;
+    }
+    .ls-val.good { color: var(--teal); }
+    .ls-val.info { color: var(--blue); }
+    .ls-val.warn { color: var(--red); }
+
+    /* Error box */
+    .error-box {
+      display: none;
+      margin: 1rem 1.5rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255,95,95,0.06);
+      border: 0.5px solid rgba(255,95,95,0.2);
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--red);
+      letter-spacing: 0.08em;
+      line-height: 1.7;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── Right panel: results ── */
+    .demo-results {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Idle state */
+    .idle-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 4rem 2rem;
+      text-align: center;
+    }
+    .idle-icon {
+      width: 64px; height: 64px;
+      border: 0.5px solid var(--border-hi);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+    }
+    .idle-icon svg { width: 28px; height: 28px; }
+    .idle-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-mid);
+      margin-bottom: 0.25rem;
+    }
+    .idle-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      line-height: 1.9;
+    }
+
+    /* Results state */
+    .results-state { display: none; flex-direction: column; flex: 1; }
+    .results-state.visible { display: flex; }
+
+    /* Results top metrics */
+    .result-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 0.5px solid var(--border);
+    }
+    .rm-item {
+      padding: 1.25rem 1.5rem;
+      border-right: 0.5px solid var(--border);
+    }
+    .rm-item:last-child { border-right: none; }
+    .rm-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .rm-lbl {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* Energy chart in results */
+    .result-chart-wrap {
+      padding: 1.5rem;
+      border-bottom: 0.5px solid var(--border);
+      flex: 1;
+    }
+    .result-chart-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(61,159,255,0.4);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .result-chart-label::after {
+      content: '';
+      flex: 1; height: 0.5px;
+      background: var(--border);
+    }
+    .result-chart-canvas {
+      position: relative;
+      height: 220px;
+    }
+
+    /* Step log */
+    .step-log {
+      padding: 1rem 1.5rem;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .step-log-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(61,159,255,0.4);
+      margin-bottom: 0.75rem;
+    }
+    .step-log-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .step-log-rows::-webkit-scrollbar { width: 3px; }
+    .step-log-rows::-webkit-scrollbar-track { background: transparent; }
+    .step-log-rows::-webkit-scrollbar-thumb { background: var(--border-hi); }
+    .log-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 4px 8px;
+      background: var(--bg3);
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+    .log-row.highlight { background: rgba(0,212,170,0.06); }
+    .log-row span { text-align: right; }
+    .log-row span:first-child { text-align: left; color: var(--blue); }
+
+    /* Loading overlay */
+    .loading-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(2,12,24,0.85);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+      z-index: 10;
+    }
+    .loading-overlay.visible { display: flex; }
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 2px solid rgba(61,159,255,0.2);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--blue);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .loading-sub {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* ══════════════════════════════════════════
+       RAMACHANDRAN + 3D PANELS
+    ══════════════════════════════════════════ */
+    .viz-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border-top: 0.5px solid var(--border);
+    }
+    .viz-panel {
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+    }
+    .viz-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 0.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .viz-panel-title {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-mid);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .viz-accent {
+      width: 8px; height: 2px;
+      flex-shrink: 0;
+    }
+    .viz-panel-legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .legend-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .viz-panel-body {
+      flex: 1;
+      position: relative;
+      height: 280px;
+    }
+    /* Ramachandran canvas fills panel */
+    #rama-chart { width: 100% !important; height: 100% !important; }
+    /* Three.js canvas fills panel */
+    #three-canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+      cursor: grab;
+    }
+    #three-canvas:active { cursor: grabbing; }
+    /* Loading states for both panels */
+    .viz-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--bg2);
+      z-index: 2;
+    }
+    .viz-loading-spinner {
+      width: 24px; height: 24px;
+      border: 1.5px solid rgba(61,159,255,0.15);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .viz-loading-text {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .viz-loading.hidden { display: none; }
+    /* Three.js controls hint */
+    .three-hint {
+      position: absolute;
+      bottom: 8px; right: 10px;
+      font-family: var(--mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    @media (max-width: 900px) {
+      .viz-grid { grid-template-columns: 1fr; }
+      .viz-panel-body { height: 240px; }
+    }
+    @media (max-width: 900px) {
+      .demo-body   { grid-template-columns: 1fr; }
+      .demo-controls { border-right: none; border-bottom: 0.5px solid var(--border); }
+      .result-metrics { grid-template-columns: 1fr 1fr; }
+      .demo-header { flex-direction: column; }
+      .health-panel { align-items: flex-start; }
+    }
+    @media (max-width: 500px) {
+      .result-metrics { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<div class="page">
+
+  <!-- ══ NAV ══ -->
+  <nav class="nav">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-dot"></div>
+      PROTEINFOLD-RL
+    </a>
+    <ul class="nav-links">
+      <a href="index.html"           >Home</a>
+      <a href="dashboard.html"       >Dashboard</a>
+      <a href="demo.html" class="active">Live Demo</a>
+      <a href="science.html"         >Science</a>
+      <a href="compare.html"         >Compare</a>
+    </ul>
+    <div class="nav-right">CHECKPOINT-07 &nbsp;·&nbsp; OPEN INNOVATION</div>
+  </nav>
+
+  <!-- ══ PAGE HEADER ══ -->
+  <div class="demo-header">
+    <div class="demo-title-group">
+      <div class="demo-eyebrow">Live inference · FastAPI backend · localhost:8000</div>
+      <div class="demo-title">Live Folding Demo</div>
+      <div class="demo-subtitle">
+        Select a protein · set steps · run the trained RL agent in real time
+      </div>
+    </div>
+    <div class="health-panel">
+      <div class="health-badge loading" id="health-badge">
+        <div class="health-dot"></div>
+        <span id="health-text">Connecting...</span>
+      </div>
+      <div class="health-meta" id="health-meta">
+        Polling GET /health<br>
+        Backend: localhost:8000
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TICKER ══ -->
+  <div class="ticker">
+    <div class="ticker-track" id="ticker-track"></div>
+  </div>
+
+  <!-- ══ DEMO BODY ══ -->
+  <div class="demo-body">
+
+    <!-- ── LEFT: Controls ── -->
+    <div class="demo-controls">
+
+      <!-- Protein selector -->
+      <div class="ctrl-section">
+        <div class="ctrl-label">Select protein</div>
+        <div class="protein-options">
+          <button class="protein-opt selected" data-pdb="1L2Y" onclick="selectProtein(this)">
+            <div class="opt-radio"></div>
+            <div class="opt-info">
+              <div class="opt-name">1L2Y — Trp-cage</div>
+              <div class="opt-desc">20 residues · α-helix + loop · trained</div>
+            </div>
+            <div class="opt-badge">TRAINED</div>
+          </button>
+          <button class="protein-opt" data-pdb="1YRF" onclick="selectProtein(this)">
+            <div class="opt-radio"></div>
+            <div class="opt-info">
+              <div class="opt-name">1YRF — Villin HP36</div>
+              <div class="opt-desc">35 residues · 3 α-helices · harder</div>
+            </div>
+            <div class="opt-badge">BETA</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Steps slider -->
+      <div class="ctrl-section">
+        <div class="ctrl-label">Folding steps</div>
+        <div class="slider-row">
+          <div class="slider-lbl">Steps</div>
+          <input type="range" id="steps-slider"
+                 min="10" max="50" value="50" step="5"
+                 oninput="updateSlider(this.value)" />
+          <div class="slider-val" id="steps-val">50</div>
+        </div>
+        <div class="slider-hint">
+          Max 50 steps per episode · higher = more exploration
+        </div>
+      </div>
+
+      <!-- Run button -->
+      <div class="ctrl-section" style="border-bottom:none;">
+        <button class="run-btn" id="run-btn"
+                onclick="runFolding()" disabled>
+          <div class="spinner"></div>
+          <span id="run-btn-text">Waiting for model...</span>
+        </button>
+        <div class="error-box" id="error-box"></div>
+      </div>
+
+      <!-- Live stats -->
+      <div class="ctrl-section">
+        <div class="ctrl-label">Last run — results</div>
+        <div class="live-stats">
+          <div class="live-stat-row">
+            <div class="ls-key">Protein</div>
+            <div class="ls-val info" id="ls-protein">—</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">Steps run</div>
+            <div class="ls-val" id="ls-steps">—</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">Initial energy</div>
+            <div class="ls-val" id="ls-init-energy">—</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">Final energy</div>
+            <div class="ls-val good" id="ls-final-energy">—</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">Energy drop</div>
+            <div class="ls-val good" id="ls-energy-drop">—</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">Final RMSD</div>
+            <div class="ls-val" id="ls-rmsd">—</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">vs native</div>
+            <div class="ls-val" id="ls-native">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API info -->
+      <div class="ctrl-section" style="margin-top:auto;">
+        <div class="ctrl-label">API endpoints</div>
+        <div class="live-stats">
+          <div class="live-stat-row">
+            <div class="ls-key">GET /health</div>
+            <div class="ls-val info" id="api-health-status">polling...</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">POST /fold</div>
+            <div class="ls-val" id="api-fold-status">ready</div>
+          </div>
+          <div class="live-stat-row">
+            <div class="ls-key">Model loaded</div>
+            <div class="ls-val" id="api-model-status">checking...</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end demo-controls -->
+
+    <!-- ── RIGHT: Results ── -->
+    <div class="demo-results" style="position:relative;">
+
+      <!-- Loading overlay -->
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Folding in progress</div>
+        <div class="loading-sub" id="loading-sub">
+          Running RL agent · please wait...
+        </div>
+      </div>
+
+      <!-- Idle state -->
+      <div class="idle-state" id="idle-state">
+        <div class="idle-icon">
+          <svg viewBox="0 0 28 28" fill="none"
+               xmlns="http://www.w3.org/2000/svg">
+            <circle cx="14" cy="14" r="13"
+                    stroke="rgba(61,159,255,0.3)" stroke-width="0.5"/>
+            <circle cx="14" cy="10" r="3"
+                    stroke="#3d9fff" stroke-width="1" opacity="0.7"/>
+            <circle cx="8"  cy="18" r="3"
+                    stroke="#3d9fff" stroke-width="1" opacity="0.5"/>
+            <circle cx="20" cy="18" r="3"
+                    stroke="#3d9fff" stroke-width="1" opacity="0.5"/>
+            <line x1="14" y1="13" x2="9"  y2="15"
+                  stroke="#3d9fff" stroke-width="0.5" opacity="0.4"/>
+            <line x1="14" y1="13" x2="19" y2="15"
+                  stroke="#3d9fff" stroke-width="0.5" opacity="0.4"/>
+          </svg>
+        </div>
+        <div class="idle-title">Ready to fold</div>
+        <div class="idle-sub" id="idle-sub-text">
+          Select a protein and click Run<br>
+          to watch the RL agent fold in real time.<br>
+          <br>
+          Waiting for backend connection...
+        </div>
+      </div>
+
+      <!-- Results state -->
+      <div class="results-state" id="results-state">
+
+        <!-- Top metrics -->
+        <div class="result-metrics">
+          <div class="rm-item">
+            <div class="rm-val" id="r-protein"
+                 style="font-size:1.1rem; color:var(--blue);">—</div>
+            <div class="rm-lbl">Protein</div>
+          </div>
+          <div class="rm-item">
+            <div class="rm-val" id="r-steps">—</div>
+            <div class="rm-lbl">Steps completed</div>
+          </div>
+          <div class="rm-item">
+            <div class="rm-val" id="r-rmsd"
+                 style="color:var(--teal);">—</div>
+            <div class="rm-lbl">Final RMSD</div>
+          </div>
+          <div class="rm-item">
+            <div class="rm-val" id="r-drop"
+                 style="color:var(--teal);">—</div>
+            <div class="rm-lbl">Energy drop</div>
+          </div>
+        </div>
+
+        <!-- Energy chart -->
+        <div class="result-chart-wrap">
+          <div class="result-chart-label">Energy during folding</div>
+          <div class="result-chart-canvas">
+            <canvas id="demo-energy-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Step log -->
+        <div class="step-log">
+          <div class="step-log-label">Step log</div>
+          <div class="step-log-rows" id="step-log-rows">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+        <!-- ── Ramachandran + 3D Viewer ── -->
+        <div class="viz-grid">
+
+          <!-- Ramachandran scatter -->
+          <div class="viz-panel">
+            <div class="viz-panel-header">
+              <div class="viz-panel-title">
+                <div class="viz-accent" style="background:var(--teal);"></div>
+                Ramachandran plot
+              </div>
+              <div class="viz-panel-legend">
+                <div class="legend-label">
+                  <div class="legend-dot" style="background:#00d4aa;"></div>Native
+                </div>
+                <div class="legend-label">
+                  <div class="legend-dot" style="background:#3d9fff;"></div>Trained
+                </div>
+                <div class="legend-label">
+                  <div class="legend-dot" style="background:rgba(180,210,240,0.3);"></div>Random
+                </div>
+              </div>
+            </div>
+            <div class="viz-panel-body">
+              <div class="viz-loading" id="rama-loading">
+                <div class="viz-loading-spinner"></div>
+                <div class="viz-loading-text">Fetching angles...</div>
+              </div>
+              <canvas id="rama-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- 3D backbone viewer -->
+          <div class="viz-panel">
+            <div class="viz-panel-header">
+              <div class="viz-panel-title">
+                <div class="viz-accent" style="background:var(--blue);"></div>
+                3D backbone structure
+              </div>
+              <div class="viz-panel-legend">
+                <div class="legend-label">
+                  <div class="legend-dot" style="background:#3d9fff;"></div>Trained
+                </div>
+                <div class="legend-label">
+                  <div class="legend-dot" style="background:#00d4aa;"></div>Native
+                </div>
+              </div>
+            </div>
+            <div class="viz-panel-body">
+              <div class="viz-loading" id="three-loading">
+                <div class="viz-loading-spinner"></div>
+                <div class="viz-loading-text">Building structure...</div>
+              </div>
+              <canvas id="three-canvas"></canvas>
+              <div class="three-hint">drag to rotate · scroll to zoom</div>
+            </div>
+          </div>
+
+        </div><!-- end viz-grid -->
+
+      </div><!-- end results-state -->
+
+    </div><!-- end demo-results -->
+
+  </div><!-- end demo-body -->
+
+  <!-- ══ PASS BADGE ══ -->
+  <div class="pass-row">
+    <div class="pass-dot"></div>
+    <div class="pass-text">
+      Live inference via FastAPI · POST /fold · model: GNN + PPO-clip ·
+      physics-based reward · no human labels
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="footer">
+    <div class="footer-l">
+      ProteinFold-RL · NIT Delhi · Open Innovation Track · 2025
+    </div>
+    <div class="footer-r">demo.html · page 3 of 5</div>
+  </footer>
+
+</div><!-- end page -->
+
+<script src="assets/js/stars.js"></script>
+<script src="assets/js/ticker.js"></script>
+<script src="assets/js/charts.js"></script>
+<script>
+
+  /* ══════════════════════════════════════════
+     CONFIG
+  ══════════════════════════════════════════ */
+  const API = 'http://localhost:8000';
+  let selectedPdb    = '1L2Y';
+  let modelLoaded    = false;
+  let demoChart      = null;
+  let ramaChart      = null;
+  let threeRenderer  = null;
+  let threeAnimId    = null;
+  let healthInterval = null;
+
+  /* ══════════════════════════════════════════
+     INIT
+  ══════════════════════════════════════════ */
+  initStarfield();
+  initTicker();
+  applyChartDefaults();
+  pollHealth();
+  healthInterval = setInterval(pollHealth, 5000);
+
+  /* ══════════════════════════════════════════
+     HEALTH POLL
+  ══════════════════════════════════════════ */
+  async function pollHealth() {
+    const badge    = document.getElementById('health-badge');
+    const text     = document.getElementById('health-text');
+    const meta     = document.getElementById('health-meta');
+    const apiStat  = document.getElementById('api-health-status');
+    const modelStat= document.getElementById('api-model-status');
+    const runBtn   = document.getElementById('run-btn');
+    const btnText  = document.getElementById('run-btn-text');
+    const idleSub  = document.getElementById('idle-sub-text');
+
+    try {
+      const res  = await fetch(`${API}/health`, { signal: AbortSignal.timeout(4000) });
+      const data = await res.json();
+
+      apiStat.textContent = '200 OK';
+      apiStat.className   = 'ls-val good';
+
+      if (data.model_loaded) {
+        modelLoaded = true;
+        badge.className     = 'health-badge online';
+        text.textContent    = 'Backend online';
+        meta.innerHTML      = `Model loaded · ready to fold<br>Backend: ${API}`;
+        modelStat.textContent = 'true';
+        modelStat.className   = 'ls-val good';
+        runBtn.disabled       = false;
+        runBtn.className      = 'run-btn';
+        btnText.textContent   = 'Run folding agent';
+        idleSub.innerHTML     =
+          'Select a protein and click Run<br>' +
+          'to watch the RL agent fold in real time.<br>' +
+          '<br><span style="color:var(--teal)">Model ready ✓</span>';
+      } else {
+        modelLoaded = false;
+        badge.className     = 'health-badge loading';
+        text.textContent    = 'Model loading...';
+        meta.innerHTML      = `Server up · model not yet loaded<br>Backend: ${API}`;
+        modelStat.textContent = 'false';
+        modelStat.className   = 'ls-val warn';
+        runBtn.disabled       = true;
+        btnText.textContent   = 'Model loading...';
+      }
+
+    } catch (err) {
+      modelLoaded = false;
+      badge.className     = 'health-badge offline';
+      text.textContent    = 'Backend offline';
+      meta.innerHTML      = `Cannot reach ${API}<br>Start: uvicorn main:app --port 8000`;
+      apiStat.textContent = 'unreachable';
+      apiStat.className   = 'ls-val warn';
+      modelStat.textContent = '—';
+      modelStat.className   = 'ls-val';
+      runBtn.disabled       = true;
+      btnText.textContent   = 'Backend offline';
+      idleSub.innerHTML     =
+        'Cannot reach backend at localhost:8000<br>' +
+        'Start FastAPI server and refresh.<br>' +
+        '<br><span style="color:var(--red)">Connection failed ✗</span>';
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     PROTEIN SELECTOR
+  ══════════════════════════════════════════ */
+  function selectProtein(btn) {
+    document.querySelectorAll('.protein-opt').forEach(b => {
+      b.classList.remove('selected');
+    });
+    btn.classList.add('selected');
+    selectedPdb = btn.dataset.pdb;
+  }
+
+  /* ══════════════════════════════════════════
+     SLIDER
+  ══════════════════════════════════════════ */
+  function updateSlider(val) {
+    document.getElementById('steps-val').textContent = val;
+  }
+
+  /* ══════════════════════════════════════════
+     RUN FOLDING
+  ══════════════════════════════════════════ */
+  async function runFolding() {
+    if (!modelLoaded) return;
+
+    const nSteps   = parseInt(document.getElementById('steps-slider').value);
+    const runBtn   = document.getElementById('run-btn');
+    const btnText  = document.getElementById('run-btn-text');
+    const overlay  = document.getElementById('loading-overlay');
+    const loadSub  = document.getElementById('loading-sub');
+    const errorBox = document.getElementById('error-box');
+    const foldStat = document.getElementById('api-fold-status');
+
+    /* Reset error */
+    errorBox.className = 'error-box';
+    errorBox.textContent = '';
+
+    /* Set loading state */
+    runBtn.disabled  = true;
+    runBtn.className = 'run-btn running';
+    btnText.textContent = 'Folding...';
+    overlay.className   = 'loading-overlay visible';
+    loadSub.textContent =
+      `Running ${nSteps} steps on ${selectedPdb} · please wait...`;
+    foldStat.textContent = 'running...';
+    foldStat.className   = 'ls-val info';
+
+    try {
+      const res = await fetch(`${API}/fold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdb_id: selectedPdb, n_steps: nSteps }),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.code || data.detail || `HTTP ${res.status}`);
+      }
+
+      foldStat.textContent = '200 OK';
+      foldStat.className   = 'ls-val good';
+
+      displayResults(data, selectedPdb, nSteps);
+
+    } catch (err) {
+      foldStat.textContent = 'failed';
+      foldStat.className   = 'ls-val warn';
+
+      const msg = err.message || 'Unknown error';
+      errorBox.className   = 'error-box visible';
+      errorBox.textContent =
+        `Error: ${msg}\n` +
+        (msg === 'MODEL_NOT_LOADED'
+          ? 'Model checkpoint not ready yet — train first.'
+          : 'Check FastAPI logs at localhost:8000/docs');
+
+    } finally {
+      runBtn.disabled      = false;
+      runBtn.className     = 'run-btn';
+      btnText.textContent  = 'Run folding agent';
+      overlay.className    = 'loading-overlay';
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     DISPLAY RESULTS
+  ══════════════════════════════════════════ */
+  function displayResults(data, pdb, nSteps) {
+    /* Hide idle, show results */
+    document.getElementById('idle-state').style.display    = 'none';
+    document.getElementById('results-state').className =
+      'results-state visible';
+
+    const energyCurve = data.energy_curve || [];
+    const initEnergy  = energyCurve.length
+      ? energyCurve[0][1]
+      : data.initial_energy ?? 0;
+    const finalEnergy = energyCurve.length
+      ? energyCurve[energyCurve.length - 1][1]
+      : data.final_energy ?? 0;
+    const energyDrop  = initEnergy - finalEnergy;
+    const rmsd        = data.final_rmsd ?? 0;
+    const stepsRun    = energyCurve.length || nSteps;
+
+    /* Top metrics */
+    document.getElementById('r-protein').textContent = pdb;
+    document.getElementById('r-steps').textContent   = stepsRun;
+    document.getElementById('r-rmsd').textContent    =
+      `${rmsd.toFixed(3)} Å`;
+    document.getElementById('r-drop').textContent    =
+      `−${energyDrop.toFixed(1)} kcal`;
+
+    /* Sidebar stats */
+    document.getElementById('ls-protein').textContent      = pdb;
+    document.getElementById('ls-steps').textContent        = stepsRun;
+    document.getElementById('ls-init-energy').textContent  =
+      `${initEnergy.toFixed(1)} kcal/mol`;
+    document.getElementById('ls-final-energy').textContent =
+      `${finalEnergy.toFixed(1)} kcal/mol`;
+    document.getElementById('ls-energy-drop').textContent  =
+      `−${energyDrop.toFixed(1)} kcal/mol`;
+    document.getElementById('ls-rmsd').textContent         =
+      `${rmsd.toFixed(3)} Å`;
+    document.getElementById('ls-native').textContent       =
+      rmsd < 2.0 ? '< 2Å — native ✓' : `${rmsd.toFixed(3)} Å`;
+
+    const rmsdEl = document.getElementById('ls-rmsd');
+    rmsdEl.className = rmsd < 2.0 ? 'ls-val good' : 'ls-val info';
+
+    /* Energy chart */
+    const steps    = energyCurve.map(p => p[0]);
+    const energies = energyCurve.map(p => parseFloat(p[1].toFixed(2)));
+
+    if (demoChart) demoChart.destroy();
+    const ctx = document.getElementById('demo-energy-chart');
+    demoChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: steps,
+        datasets: [{
+          label: 'Energy (kcal/mol)',
+          data: energies,
+          borderColor: PF.blue,
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: { target: 'origin', above: 'rgba(61,159,255,0.05)' },
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 800 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#061428',
+            borderColor: PF.border,
+            borderWidth: 0.5,
+            titleFont: { family: PF.mono, size: 10 },
+            bodyFont:  { family: PF.mono, size: 10 },
+            callbacks: {
+              title: i  => `Step ${i[0].label}`,
+              label: i  => ` Energy: ${i.parsed.y.toFixed(2)} kcal/mol`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid:  { color: PF.border },
+            ticks: { color: PF.textDim, font: { family: PF.mono, size: 9 },
+                     maxTicksLimit: 8 },
+          },
+          y: {
+            grid:  { color: PF.border },
+            ticks: { color: PF.textDim, font: { family: PF.mono, size: 9 },
+                     callback: v => `${v} kcal` },
+          },
+        },
+      },
+    });
+
+    /* Step log */
+    const logRows = document.getElementById('step-log-rows');
+    logRows.innerHTML = energyCurve.map((p, i) => {
+      const isLow = p[1] === Math.min(...energies);
+      return `
+        <div class="log-row ${isLow ? 'highlight' : ''}">
+          <span>Step ${p[0]}</span>
+          <span>${p[1].toFixed(2)} kcal/mol</span>
+          <span>${i > 0
+            ? (p[1] - energyCurve[i-1][1]).toFixed(2)
+            : '—'}</span>
+          <span>${isLow ? '★ best' : ''}</span>
+        </div>
+      `;
+    }).join('');
+
+    /* Scroll log to bottom */
+    logRows.scrollTop = logRows.scrollHeight;
+
+    /* ── Fire Ramachandran + 3D fetches in parallel ── */
+    fetchRamachandran();
+    fetchCoords();
+  }
+
+  /* ══════════════════════════════════════════
+     RAMACHANDRAN PLOT
+  ══════════════════════════════════════════ */
+  async function fetchRamachandran() {
+    const loading = document.getElementById('rama-loading');
+    loading.classList.remove('hidden');
+
+    try {
+      const res  = await fetch(`${API}/ramachandran`, {
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      drawRamachandran(data);
+    } catch (err) {
+      console.warn('[demo] /ramachandran fetch failed:', err.message);
+      loading.querySelector('.viz-loading-text').textContent = 'Unavailable';
+    }
+  }
+
+  function drawRamachandran(data) {
+    const loading = document.getElementById('rama-loading');
+    const ctx     = document.getElementById('rama-chart');
+
+    /* native = green, trained = blue, random = grey */
+    const toPoints = arr => (arr || []).map(r => ({ x: r.phi, y: r.psi }));
+
+    if (ramaChart) ramaChart.destroy();
+
+    ramaChart = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Random',
+            data: toPoints(data.random),
+            backgroundColor: 'rgba(180,210,240,0.25)',
+            pointRadius: 3,
+            pointHoverRadius: 4,
+          },
+          {
+            label: 'Trained',
+            data: toPoints(data.trained),
+            backgroundColor: 'rgba(61,159,255,0.7)',
+            pointRadius: 4,
+            pointHoverRadius: 5,
+          },
+          {
+            label: 'Native',
+            data: toPoints(data.native),
+            backgroundColor: 'rgba(0,212,170,0.85)',
+            pointRadius: 4,
+            pointHoverRadius: 5,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 600 },
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              color: PF.textDim,
+              font: { family: PF.mono, size: 9 },
+              boxWidth: 10,
+              padding: 12,
+              usePointStyle: true,
+            },
+          },
+          tooltip: {
+            backgroundColor: '#061428',
+            borderColor: PF.border,
+            borderWidth: 0.5,
+            titleFont: { family: PF.mono, size: 9 },
+            bodyFont:  { family: PF.mono, size: 9 },
+            callbacks: {
+              label: item =>
+                ` φ ${item.parsed.x.toFixed(1)}°  ψ ${item.parsed.y.toFixed(1)}°`,
+            },
+          },
+          /* Faint region rectangles via custom plugin */
+          annotation: undefined,
+        },
+        scales: {
+          x: {
+            min: -180, max: 180,
+            grid:  { color: PF.border },
+            ticks: {
+              color: PF.textDim,
+              font: { family: PF.mono, size: 8 },
+              stepSize: 60,
+              callback: v => `${v}°`,
+            },
+            title: {
+              display: true,
+              text: 'φ (phi)',
+              color: PF.textDim,
+              font: { family: PF.mono, size: 9 },
+            },
+          },
+          y: {
+            min: -180, max: 180,
+            grid:  { color: PF.border },
+            ticks: {
+              color: PF.textDim,
+              font: { family: PF.mono, size: 8 },
+              stepSize: 60,
+              callback: v => `${v}°`,
+            },
+            title: {
+              display: true,
+              text: 'ψ (psi)',
+              color: PF.textDim,
+              font: { family: PF.mono, size: 9 },
+            },
+          },
+        },
+      },
+      /* Draw helix + sheet region rectangles as a custom plugin */
+      plugins: [{
+        id: 'ramaRegions',
+        beforeDraw(chart) {
+          const { ctx: c, chartArea: a, scales: { x, y } } = chart;
+
+          function drawRegion(phiMin, phiMax, psiMin, psiMax, color) {
+            const x1 = x.getPixelForValue(phiMin);
+            const x2 = x.getPixelForValue(phiMax);
+            const y1 = y.getPixelForValue(psiMax); // canvas y is inverted
+            const y2 = y.getPixelForValue(psiMin);
+            c.save();
+            c.fillStyle = color;
+            c.fillRect(x1, y1, x2 - x1, y2 - y1);
+            c.restore();
+          }
+
+          /* α-helix region */
+          drawRegion(-90, -30, -77, -17, 'rgba(0,212,170,0.07)');
+          /* β-sheet region */
+          drawRegion(-150, -90, 100, 175, 'rgba(61,159,255,0.07)');
+        },
+      }],
+    });
+
+    loading.classList.add('hidden');
+  }
+
+  /* ══════════════════════════════════════════
+     3D BACKBONE VIEWER  (Three.js r128)
+  ══════════════════════════════════════════ */
+  async function fetchCoords() {
+    const loading = document.getElementById('three-loading');
+    loading.classList.remove('hidden');
+
+    try {
+      const res  = await fetch(`${API}/coords`, {
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      draw3DStructure(data);
+    } catch (err) {
+      console.warn('[demo] /coords fetch failed:', err.message);
+      loading.querySelector('.viz-loading-text').textContent = 'Unavailable';
+    }
+  }
+
+  function draw3DStructure(data) {
+    const loading = document.getElementById('three-loading');
+    const canvas  = document.getElementById('three-canvas');
+
+    /* Teardown previous renderer if any */
+    if (threeAnimId) cancelAnimationFrame(threeAnimId);
+    if (threeRenderer) {
+      threeRenderer.dispose();
+      threeRenderer = null;
+    }
+
+    const W = canvas.parentElement.clientWidth  || 400;
+    const H = canvas.parentElement.clientHeight || 280;
+
+    /* ── Scene setup ── */
+    const scene    = new THREE.Scene();
+    scene.background = new THREE.Color(0x040f1f);
+
+    const camera   = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
+    camera.position.set(0, 0, 60);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    threeRenderer  = renderer;
+
+    /* ── Helper: centre coords around origin ── */
+    function centre(coords) {
+      const n   = coords.length;
+      const cx  = coords.reduce((s, p) => s + p[0], 0) / n;
+      const cy  = coords.reduce((s, p) => s + p[1], 0) / n;
+      const cz  = coords.reduce((s, p) => s + p[2], 0) / n;
+      return coords.map(p => [p[0] - cx, p[1] - cy, p[2] - cz]);
+    }
+
+    /* ── Helper: draw a tube backbone ── */
+    function addBackbone(coords, color) {
+      if (!coords || coords.length < 2) return;
+      const pts = centre(coords).map(p => new THREE.Vector3(p[0], p[1], p[2]));
+
+      /* Spheres at each Cα */
+      const sphereGeo = new THREE.SphereGeometry(0.4, 8, 8);
+      const sphereMat = new THREE.MeshPhongMaterial({ color, opacity: 0.9, transparent: true });
+      pts.forEach(p => {
+        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
+        mesh.position.copy(p);
+        scene.add(mesh);
+      });
+
+      /* Lines connecting Cα atoms */
+      const lineMat = new THREE.LineBasicMaterial({ color, opacity: 0.6, transparent: true });
+      for (let i = 0; i < pts.length - 1; i++) {
+        const geo  = new THREE.BufferGeometry().setFromPoints([pts[i], pts[i + 1]]);
+        const line = new THREE.Line(geo, lineMat);
+        scene.add(line);
+      }
+    }
+
+    addBackbone(data.trained, 0x3d9fff); /* blue  — trained */
+    addBackbone(data.native,  0x00d4aa); /* green — native  */
+
+    /* ── Lighting ── */
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 15);
+    scene.add(dirLight);
+
+    /* ── Mouse drag rotation ── */
+    let isDragging = false;
+    let prevX = 0, prevY = 0;
+    const group = new THREE.Group();
+    scene.children
+      .filter(c => c !== dirLight && !(c instanceof THREE.AmbientLight))
+      .forEach(c => { scene.remove(c); group.add(c); });
+    scene.add(group);
+
+    canvas.addEventListener('mousedown', e => {
+      isDragging = true; prevX = e.clientX; prevY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevX;
+      const dy = e.clientY - prevY;
+      group.rotation.y += dx * 0.008;
+      group.rotation.x += dy * 0.008;
+      prevX = e.clientX; prevY = e.clientY;
+    });
+
+    /* ── Scroll to zoom ── */
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      camera.position.z = Math.max(10, Math.min(150,
+        camera.position.z + e.deltaY * 0.05
+      ));
+    }, { passive: false });
+
+    /* ── Slow auto-rotate ── */
+    function animate() {
+      threeAnimId = requestAnimationFrame(animate);
+      if (!isDragging) group.rotation.y += 0.003;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    loading.classList.add('hidden');
+  }
+
+</script>
+
+</body>
+</html>

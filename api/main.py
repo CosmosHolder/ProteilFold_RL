@@ -60,8 +60,14 @@ _HF_SPACE_URL = os.getenv("HF_SPACE_URL", "")   # e.g. https://user-name.hf.spac
 ALLOWED_ORIGINS = [
     "http://localhost:7860",
     "http://127.0.0.1:7860",
-    "http://localhost:3000",    # in case frontend is rebuilt in React
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://localhost:5173",
+    "http://localhost:63342",  # PyCharm built-in server
+    "http://127.0.0.1:63342",
+    "null",
 ]
 if _HF_SPACE_URL:
     ALLOWED_ORIGINS.append(_HF_SPACE_URL)
