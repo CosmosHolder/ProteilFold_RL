@@ -592,7 +592,7 @@
     /* Three.js controls hint */
     .three-hint {
       position: absolute;
-      bottom: 8px; right: 10px;
+      bottom: 36px; right: 10px;
       font-family: var(--mono);
       font-size: 8px;
       color: var(--text-dim);
@@ -600,6 +600,75 @@
       pointer-events: none;
       opacity: 0.6;
     }
+    /* ── Animation player controls ── */
+    .anim-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px 8px;
+      border-top: 0.5px solid var(--border);
+      background: var(--bg3);
+      flex-shrink: 0;
+    }
+    .anim-play-btn {
+      width: 28px; height: 28px;
+      border: 0.5px solid var(--border-hi);
+      background: rgba(61,159,255,0.1);
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 11px;
+      transition: background 0.15s;
+    }
+    .anim-play-btn:hover { background: rgba(61,159,255,0.2); }
+    .anim-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 3px;
+      background: rgba(61,159,255,0.15);
+      outline: none;
+      border-radius: 0;
+    }
+    .anim-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--blue);
+      cursor: pointer;
+    }
+    .anim-slider::-moz-range-thumb {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--blue);
+      cursor: pointer;
+      border: none;
+    }
+    .anim-step-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--blue);
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 52px;
+      text-align: right;
+    }
+    .anim-speed-btn {
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      border: 0.5px solid var(--border);
+      background: transparent;
+      padding: 3px 7px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .anim-speed-btn:hover { color: var(--blue); border-color: var(--blue); }
     @media (max-width: 900px) {
       .viz-grid { grid-template-columns: 1fr; }
       .viz-panel-body { height: 240px; }
@@ -885,18 +954,29 @@
               </div>
               <canvas id="rama-chart"></canvas>
             </div>
+            <div style="padding:7px 14px 9px; border-top:0.5px solid var(--border);
+                        background:var(--bg3); flex-shrink:0;">
+              <div style="font-family:var(--mono); font-size:8px;
+                          color:var(--text-dim); letter-spacing:0.08em;
+                          line-height:1.8;">
+                Each dot = one backbone angle pair (φ/ψ) per residue.
+                <span style="color:#00d4aa;">Green = native structure.</span>
+                <span style="color:#3d9fff;">Blue = trained agent.</span>
+                Dots clustered in the shaded regions = protein learned correct geometry.
+              </div>
+            </div>
           </div>
 
-          <!-- 3D backbone viewer -->
+          <!-- 3D backbone animation player -->
           <div class="viz-panel">
             <div class="viz-panel-header">
               <div class="viz-panel-title">
                 <div class="viz-accent" style="background:var(--blue);"></div>
-                3D backbone structure
+                3D folding trajectory
               </div>
               <div class="viz-panel-legend">
                 <div class="legend-label">
-                  <div class="legend-dot" style="background:#3d9fff;"></div>Trained
+                  <div class="legend-dot" style="background:#3d9fff;"></div>Agent
                 </div>
                 <div class="legend-label">
                   <div class="legend-dot" style="background:#00d4aa;"></div>Native
@@ -906,10 +986,21 @@
             <div class="viz-panel-body">
               <div class="viz-loading" id="three-loading">
                 <div class="viz-loading-spinner"></div>
-                <div class="viz-loading-text">Building structure...</div>
+                <div class="viz-loading-text">Building trajectory...</div>
               </div>
               <canvas id="three-canvas"></canvas>
               <div class="three-hint">drag to rotate · scroll to zoom</div>
+            </div>
+            <!-- Playback controls -->
+            <div class="anim-controls" id="anim-controls" style="display:none;">
+              <button class="anim-play-btn" id="anim-play-btn"
+                      onclick="togglePlay()" title="Play / Pause">▶</button>
+              <input  class="anim-slider" type="range"
+                      id="anim-slider" min="0" value="0"
+                      oninput="onSliderInput(this.value)" />
+              <div class="anim-step-badge" id="anim-step-badge">Step 0</div>
+              <button class="anim-speed-btn" id="anim-speed-btn"
+                      onclick="cycleSpeed()" title="Playback speed">1×</button>
             </div>
           </div>
 
@@ -956,6 +1047,8 @@
   let threeRenderer  = null;
   let threeAnimId    = null;
   let healthInterval = null;
+
+  /* trajectory player state — initialised in initTrajectoryPlayer() */
 
   /* ══════════════════════════════════════════
      INIT
@@ -1231,9 +1324,16 @@
     /* Scroll log to bottom */
     logRows.scrollTop = logRows.scrollHeight;
 
-    /* ── Fire Ramachandran + 3D fetches in parallel ── */
+    /* ── Fire Ramachandran in parallel + init trajectory player ── */
     fetchRamachandran();
-    fetchCoords();
+    const trajectory   = data.trajectory    || [];
+    const nativeCoords = data.native_coords || null;
+    if (trajectory.length > 0) {
+      initTrajectoryPlayer(trajectory, nativeCoords);
+    } else {
+      /* Fallback: fetch /coords if no trajectory in response */
+      fetchCoords();
+    }
   }
 
   /* ══════════════════════════════════════════
@@ -1248,7 +1348,7 @@
 
     try {
       const res  = await fetch(`${API}/ramachandran`, {
-        signal: AbortSignal.timeout(60000)
+        signal: AbortSignal.timeout(120000)
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -1275,23 +1375,23 @@
           {
             label: 'Random',
             data: toPoints(data.random),
-            backgroundColor: 'rgba(180,210,240,0.25)',
-            pointRadius: 3,
-            pointHoverRadius: 4,
+            backgroundColor: 'rgba(180,210,240,0.55)',
+            pointRadius: 5,
+            pointHoverRadius: 7,
           },
           {
             label: 'Trained',
             data: toPoints(data.trained),
-            backgroundColor: 'rgba(61,159,255,0.7)',
-            pointRadius: 4,
-            pointHoverRadius: 5,
+            backgroundColor: 'rgba(61,159,255,0.95)',
+            pointRadius: 6,
+            pointHoverRadius: 8,
           },
           {
             label: 'Native',
             data: toPoints(data.native),
-            backgroundColor: 'rgba(0,212,170,0.85)',
-            pointRadius: 4,
-            pointHoverRadius: 5,
+            backgroundColor: 'rgba(0,212,170,1.0)',
+            pointRadius: 6,
+            pointHoverRadius: 8,
           },
         ],
       },
@@ -1359,27 +1459,52 @@
           },
         },
       },
-      /* Draw helix + sheet region rectangles as a custom plugin */
+      /* Draw helix + sheet region rectangles + labels as a custom plugin */
       plugins: [{
         id: 'ramaRegions',
         beforeDraw(chart) {
           const { ctx: c, chartArea: a, scales: { x, y } } = chart;
 
-          function drawRegion(phiMin, phiMax, psiMin, psiMax, color) {
+          function drawRegion(phiMin, phiMax, psiMin, psiMax, fillColor, label, labelColor) {
             const x1 = x.getPixelForValue(phiMin);
             const x2 = x.getPixelForValue(phiMax);
             const y1 = y.getPixelForValue(psiMax); // canvas y is inverted
             const y2 = y.getPixelForValue(psiMin);
             c.save();
-            c.fillStyle = color;
+
+            /* Filled rect */
+            c.fillStyle = fillColor;
             c.fillRect(x1, y1, x2 - x1, y2 - y1);
+
+            /* Border */
+            c.strokeStyle = fillColor.replace(/[\d.]+\)$/, '0.35)');
+            c.lineWidth   = 0.5;
+            c.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+            /* Label — top-left corner of region, 4px inside */
+            c.fillStyle  = labelColor;
+            c.font       = '8px "Space Mono", monospace';
+            c.textAlign  = 'left';
+            c.textBaseline = 'top';
+            c.fillText(label, x1 + 4, y1 + 4);
+
             c.restore();
           }
 
           /* α-helix region */
-          drawRegion(-90, -30, -77, -17, 'rgba(0,212,170,0.07)');
+          drawRegion(
+            -90, -30, -77, -17,
+            'rgba(0,212,170,0.10)',
+            'Alpha helix',
+            'rgba(0,212,170,0.7)'
+          );
           /* β-sheet region */
-          drawRegion(-150, -90, 100, 175, 'rgba(61,159,255,0.07)');
+          drawRegion(
+            -150, -90, 100, 175,
+            'rgba(61,159,255,0.10)',
+            'Beta sheet',
+            'rgba(61,159,255,0.7)'
+          );
         },
       }],
     });
@@ -1388,131 +1513,267 @@
   }
 
   /* ══════════════════════════════════════════
-     3D BACKBONE VIEWER  (Three.js r128)
-  ══════════════════════════════════════════ */
-  async function fetchCoords() {
-    const loading = document.getElementById('three-loading');
-    loading.classList.remove('hidden');
+     3D TRAJECTORY ANIMATION PLAYER (Three.js r128)
 
-    try {
-      const res  = await fetch(`${API}/coords`, {
-        signal: AbortSignal.timeout(15000)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      draw3DStructure(data);
-    } catch (err) {
-      console.warn('[demo] /coords fetch failed:', err.message);
-      loading.querySelector('.viz-loading-text').textContent = 'Unavailable';
-    }
+     Primary path: data.trajectory from /fold response
+       Each frame: { step, energy, coords: [[x,y,z],...] }
+     Fallback path: GET /coords for static final+native view
+  ══════════════════════════════════════════ */
+
+  /* ── Shared Three.js scene state ── */
+  let threeScene    = null;
+  let threeCamera   = null;
+  let threeGroup    = null;   // rotatable group containing backbones
+  let nativeGroup   = null;   // native backbone — never changes
+  let agentGroup    = null;   // agent backbone — swapped each frame
+
+  /* ── Animation state ── */
+  let trajFrames    = [];     // array of {step, energy, coords}
+  let currentFrame  = 0;
+  let isPlaying     = false;
+  let playInterval  = null;
+  let speedMs       = 120;    // ms per frame
+  const SPEEDS      = [120, 60, 30]; // 1× 2× 4×
+  const SPEED_LABELS= ['1×', '2×', '4×'];
+  let speedIdx      = 0;
+
+  /* ── Helper: centre Cα coords around origin ── */
+  function centreCoords(coords) {
+    const n  = coords.length;
+    const cx = coords.reduce((s, p) => s + p[0], 0) / n;
+    const cy = coords.reduce((s, p) => s + p[1], 0) / n;
+    const cz = coords.reduce((s, p) => s + p[2], 0) / n;
+    return coords.map(p => [p[0]-cx, p[1]-cy, p[2]-cz]);
   }
 
-  function draw3DStructure(data) {
-    const loading = document.getElementById('three-loading');
-    const canvas  = document.getElementById('three-canvas');
+  /* ── Helper: build a backbone Group (spheres + lines) ── */
+  function buildBackboneGroup(coords, color) {
+    const grp = new THREE.Group();
+    if (!coords || coords.length < 2) return grp;
+    const pts = centreCoords(coords).map(p => new THREE.Vector3(p[0], p[1], p[2]));
 
-    /* Teardown previous renderer if any */
-    if (threeAnimId) cancelAnimationFrame(threeAnimId);
-    if (threeRenderer) {
-      threeRenderer.dispose();
-      threeRenderer = null;
+    const sphereGeo = new THREE.SphereGeometry(0.4, 7, 7);
+    const mat = new THREE.MeshPhongMaterial({
+      color, opacity: 0.9, transparent: true
+    });
+    pts.forEach(p => {
+      const m = new THREE.Mesh(sphereGeo, mat.clone());
+      m.position.copy(p);
+      grp.add(m);
+    });
+
+    const lineMat = new THREE.LineBasicMaterial({
+      color, opacity: 0.55, transparent: true
+    });
+    for (let i = 0; i < pts.length - 1; i++) {
+      const geo  = new THREE.BufferGeometry().setFromPoints([pts[i], pts[i+1]]);
+      grp.add(new THREE.Line(geo, lineMat));
     }
+    return grp;
+  }
 
-    const W = canvas.parentElement.clientWidth  || 400;
+  /* ── Update agent backbone in-place for a new frame ── */
+  function updateAgentBackbone(coords) {
+    if (!threeGroup || !agentGroup) return;
+
+    /* Remove old agent group, build new one, add to scene group */
+    threeGroup.remove(agentGroup);
+    agentGroup = buildBackboneGroup(coords, 0x3d9fff);
+    threeGroup.add(agentGroup);
+  }
+
+  /* ── Initialise Three.js scene once ── */
+  function initThreeScene(nativeCoords) {
+    const canvas = document.getElementById('three-canvas');
+    const W = canvas.parentElement.clientWidth  || 440;
     const H = canvas.parentElement.clientHeight || 280;
 
-    /* ── Scene setup ── */
-    const scene    = new THREE.Scene();
-    scene.background = new THREE.Color(0x040f1f);
+    /* Teardown previous */
+    if (threeAnimId) cancelAnimationFrame(threeAnimId);
+    if (threeRenderer) { threeRenderer.dispose(); threeRenderer = null; }
 
-    const camera   = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
-    camera.position.set(0, 0, 60);
+    threeScene  = new THREE.Scene();
+    threeScene.background = new THREE.Color(0x040f1f);
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    threeRenderer  = renderer;
+    threeCamera = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
+    threeCamera.position.set(0, 0, 60);
 
-    /* ── Helper: centre coords around origin ── */
-    function centre(coords) {
-      const n   = coords.length;
-      const cx  = coords.reduce((s, p) => s + p[0], 0) / n;
-      const cy  = coords.reduce((s, p) => s + p[1], 0) / n;
-      const cz  = coords.reduce((s, p) => s + p[2], 0) / n;
-      return coords.map(p => [p[0] - cx, p[1] - cy, p[2] - cz]);
-    }
+    threeRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    threeRenderer.setSize(W, H);
+    threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    /* ── Helper: draw a tube backbone ── */
-    function addBackbone(coords, color) {
-      if (!coords || coords.length < 2) return;
-      const pts = centre(coords).map(p => new THREE.Vector3(p[0], p[1], p[2]));
+    /* Lighting */
+    threeScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(10, 20, 15);
+    threeScene.add(dir);
 
-      /* Spheres at each Cα */
-      const sphereGeo = new THREE.SphereGeometry(0.4, 8, 8);
-      const sphereMat = new THREE.MeshPhongMaterial({ color, opacity: 0.9, transparent: true });
-      pts.forEach(p => {
-        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
-        mesh.position.copy(p);
-        scene.add(mesh);
-      });
+    /* Rotatable group */
+    threeGroup = new THREE.Group();
+    threeScene.add(threeGroup);
 
-      /* Lines connecting Cα atoms */
-      const lineMat = new THREE.LineBasicMaterial({ color, opacity: 0.6, transparent: true });
-      for (let i = 0; i < pts.length - 1; i++) {
-        const geo  = new THREE.BufferGeometry().setFromPoints([pts[i], pts[i + 1]]);
-        const line = new THREE.Line(geo, lineMat);
-        scene.add(line);
-      }
-    }
+    /* Native backbone — static green */
+    nativeGroup = buildBackboneGroup(nativeCoords, 0x00d4aa);
+    threeGroup.add(nativeGroup);
 
-    addBackbone(data.trained, 0x3d9fff); /* blue  — trained */
-    addBackbone(data.native,  0x00d4aa); /* green — native  */
+    /* Agent backbone — placeholder, swapped per frame */
+    agentGroup = new THREE.Group();
+    threeGroup.add(agentGroup);
 
-    /* ── Lighting ── */
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(10, 20, 15);
-    scene.add(dirLight);
-
-    /* ── Mouse drag rotation ── */
-    let isDragging = false;
-    let prevX = 0, prevY = 0;
-    const group = new THREE.Group();
-    scene.children
-      .filter(c => c !== dirLight && !(c instanceof THREE.AmbientLight))
-      .forEach(c => { scene.remove(c); group.add(c); });
-    scene.add(group);
-
+    /* Mouse drag rotation */
+    let isDragging = false, prevX = 0, prevY = 0;
     canvas.addEventListener('mousedown', e => {
       isDragging = true; prevX = e.clientX; prevY = e.clientY;
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
     canvas.addEventListener('mousemove', e => {
       if (!isDragging) return;
-      const dx = e.clientX - prevX;
-      const dy = e.clientY - prevY;
-      group.rotation.y += dx * 0.008;
-      group.rotation.x += dy * 0.008;
+      threeGroup.rotation.y += (e.clientX - prevX) * 0.008;
+      threeGroup.rotation.x += (e.clientY - prevY) * 0.008;
       prevX = e.clientX; prevY = e.clientY;
     });
 
-    /* ── Scroll to zoom ── */
+    /* Scroll zoom */
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
-      camera.position.z = Math.max(10, Math.min(150,
-        camera.position.z + e.deltaY * 0.05
+      threeCamera.position.z = Math.max(10, Math.min(150,
+        threeCamera.position.z + e.deltaY * 0.05
       ));
     }, { passive: false });
 
-    /* ── Slow auto-rotate ── */
-    function animate() {
-      threeAnimId = requestAnimationFrame(animate);
-      if (!isDragging) group.rotation.y += 0.003;
-      renderer.render(scene, camera);
+    /* Render loop — slow auto-rotate when not dragging */
+    function renderLoop() {
+      threeAnimId = requestAnimationFrame(renderLoop);
+      if (!isDragging && !isPlaying) threeGroup.rotation.y += 0.003;
+      threeRenderer.render(threeScene, threeCamera);
     }
-    animate();
+    renderLoop();
+  }
+
+  /* ── Main entry: initialise player from trajectory array ── */
+  function initTrajectoryPlayer(trajectory, nativeCoords) {
+    const loading = document.getElementById('three-loading');
+    loading.classList.remove('hidden');
+
+    trajFrames   = trajectory;
+    currentFrame = 0;
+    isPlaying    = false;
+
+    /* native_coords comes from top-level fold response.
+       Fallback to step-0 coords only if backend didn't send it. */
+    const native = nativeCoords || trajFrames[0].coords;
+
+    initThreeScene(native);
+
+    /* Draw first frame */
+    updateAgentBackbone(trajFrames[0].coords);
+
+    /* Configure slider */
+    const slider = document.getElementById('anim-slider');
+    slider.max   = trajFrames.length - 1;
+    slider.value = 0;
+
+    /* Show controls */
+    document.getElementById('anim-controls').style.display = 'flex';
+    updateStepBadge(0);
 
     loading.classList.add('hidden');
+  }
+
+  /* ── Step to a specific frame ── */
+  function goToFrame(idx) {
+    currentFrame = Math.max(0, Math.min(trajFrames.length - 1, idx));
+    updateAgentBackbone(trajFrames[currentFrame].coords);
+    document.getElementById('anim-slider').value = currentFrame;
+    updateStepBadge(currentFrame);
+  }
+
+  /* ── Update the step badge label ── */
+  function updateStepBadge(idx) {
+    const f = trajFrames[idx];
+    document.getElementById('anim-step-badge').textContent =
+      `Step ${f.step}`;
+  }
+
+  /* ── Play / Pause ── */
+  function togglePlay() {
+    isPlaying = !isPlaying;
+    document.getElementById('anim-play-btn').textContent =
+      isPlaying ? '⏸' : '▶';
+
+    if (isPlaying) {
+      /* If at last frame, restart */
+      if (currentFrame >= trajFrames.length - 1) currentFrame = 0;
+
+      playInterval = setInterval(() => {
+        if (currentFrame >= trajFrames.length - 1) {
+          /* Reached end — stop */
+          isPlaying = false;
+          clearInterval(playInterval);
+          document.getElementById('anim-play-btn').textContent = '▶';
+          return;
+        }
+        goToFrame(currentFrame + 1);
+      }, speedMs);
+    } else {
+      clearInterval(playInterval);
+    }
+  }
+
+  /* ── Slider input ── */
+  function onSliderInput(val) {
+    /* Pause if playing */
+    if (isPlaying) {
+      isPlaying = false;
+      clearInterval(playInterval);
+      document.getElementById('anim-play-btn').textContent = '▶';
+    }
+    goToFrame(parseInt(val));
+  }
+
+  /* ── Cycle playback speed ── */
+  function cycleSpeed() {
+    const wasPlaying = isPlaying;
+    if (isPlaying) { isPlaying = false; clearInterval(playInterval); }
+
+    speedIdx = (speedIdx + 1) % SPEEDS.length;
+    speedMs  = SPEEDS[speedIdx];
+    document.getElementById('anim-speed-btn').textContent =
+      SPEED_LABELS[speedIdx];
+
+    if (wasPlaying) {
+      isPlaying = true;
+      document.getElementById('anim-play-btn').textContent = '⏸';
+      playInterval = setInterval(() => {
+        if (currentFrame >= trajFrames.length - 1) {
+          isPlaying = false;
+          clearInterval(playInterval);
+          document.getElementById('anim-play-btn').textContent = '▶';
+          return;
+        }
+        goToFrame(currentFrame + 1);
+      }, speedMs);
+    }
+  }
+
+  /* ── Fallback: static /coords fetch when no trajectory in response ── */
+  async function fetchCoords() {
+    const loading = document.getElementById('three-loading');
+    loading.classList.remove('hidden');
+    try {
+      const res  = await fetch(`${API}/coords`, {
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      /* Static view — no animation controls */
+      initThreeScene(data.native);
+      updateAgentBackbone(data.trained);
+      loading.classList.add('hidden');
+    } catch (err) {
+      console.warn('[demo] /coords fetch failed:', err.message);
+      loading.querySelector('.viz-loading-text').textContent = 'Unavailable';
+    }
   }
 
 </script>

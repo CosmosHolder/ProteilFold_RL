@@ -313,6 +313,8 @@ def run_fold(
         rmsd=initial_rmsd,
         has_clash=False,
         reward=0.0,
+        coords=[[round(float(x), 3) for x in row]
+                for row in initial_coords.tolist()],
     ))
 
     best_rmsd   = initial_rmsd
@@ -346,6 +348,8 @@ def run_fold(
             rmsd=round(current_rmsd, 4),
             has_clash=bool(step_info["has_clash"]),
             reward=round(float(reward), 4),
+            coords=[[round(float(x), 3) for x in row]
+                    for row in env.ca_coords.tolist()],
         ))
 
         # Check convergence flag
@@ -383,6 +387,8 @@ def run_fold(
         initial_pdb=initial_pdb,
         final_pdb=final_pdb,
         native_pdb=native_pdb,
+        native_coords=[[round(float(x), 3) for x in row]
+                       for row in env.native_coords.tolist()],
         converged=converged,
     )
 

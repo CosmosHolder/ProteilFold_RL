@@ -96,11 +96,15 @@ class FoldRequest(BaseModel):
 
 class StepSnapshot(BaseModel):
     """Energy/RMSD snapshot at a single agent step."""
-    step      : int   = Field(description="Step index (0 = initial).")
-    energy    : float = Field(description="Energy in kcal/mol.")
-    rmsd      : float = Field(description="RMSD vs native structure in Å.")
-    has_clash : bool  = Field(description="Whether a steric clash was detected.")
-    reward    : float = Field(description="Reward received at this step.")
+    step      : int         = Field(description="Step index (0 = initial).")
+    energy    : float       = Field(description="Energy in kcal/mol.")
+    rmsd      : float       = Field(description="RMSD vs native structure in Å.")
+    has_clash : bool        = Field(description="Whether a steric clash was detected.")
+    reward    : float       = Field(description="Reward received at this step.")
+    coords    : List[List[float]] = Field(
+        description="Cα coordinates at this step [[x,y,z], ...]. "
+                    "Used for 3D folding animation on the frontend."
+    )
 
 
 class FoldResponse(BaseModel):
@@ -132,6 +136,9 @@ class FoldResponse(BaseModel):
             "PDB string of native structure. "
             "Empty string for custom sequences (no reference)."
         )
+    )
+    native_coords: List[List[float]] = Field(
+        description="Native Cα coordinates [[x,y,z], ...] for 3D animation reference."
     )
     converged        : bool  = Field(
         description="True if agent terminated early due to energy convergence."
