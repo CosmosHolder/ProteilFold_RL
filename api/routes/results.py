@@ -369,8 +369,8 @@ def get_ramachandran():
     env_native.reset()
     for phi, psi in zip(env_native.phi_angles, env_native.psi_angles):
         native_angles.append({
-            "phi": round(float(phi), 4),
-            "psi": round(float(psi), 4),
+            "phi": round(float(np.degrees(phi)), 2),
+            "psi": round(float(np.degrees(psi)), 2),
         })
 
     # Trained agent — 5 episodes
@@ -389,8 +389,8 @@ def get_ramachandran():
             done = terminated or truncated
             for phi, psi in zip(env_t.phi_angles, env_t.psi_angles):
                 trained_angles.append({
-                    "phi": round(float(phi), 4),
-                    "psi": round(float(psi), 4),
+                    "phi": round(float(np.degrees(phi)), 2),
+                    "psi": round(float(np.degrees(psi)), 2),
                 })
 
     # Random baseline — 5 episodes
@@ -404,8 +404,8 @@ def get_ramachandran():
             done = terminated or truncated
             for phi, psi in zip(env_r.phi_angles, env_r.psi_angles):
                 random_angles.append({
-                    "phi": round(float(phi), 4),
-                    "psi": round(float(psi), 4),
+                    "phi": round(float(np.degrees(phi)), 2),
+                    "psi": round(float(np.degrees(psi)), 2),
                 })
 
     _ramachandran_cache = {
