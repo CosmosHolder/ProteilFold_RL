@@ -336,15 +336,100 @@ def get_training_log_json(
 # ── Ramachandran cache ─────────────────────────────────────────
 _ramachandran_cache = None
 
+
+def _compute_dihedral(a: np.ndarray, b: np.ndarray,
+                      c: np.ndarray, d: np.ndarray) -> float:
+    """
+    Compute dihedral angle between four points (a-b-c-d) in degrees.
+    Uses the standard cross-product method.
+    """
+    b1 = b - a
+    b2 = c - b
+    b3 = d - c
+
+    n1 = np.cross(b1, b2)
+    n2 = np.cross(b2, b3)
+
+    n1_norm = np.linalg.norm(n1)
+    n2_norm = np.linalg.norm(n2)
+
+    if n1_norm < 1e-8 or n2_norm < 1e-8:
+        return 0.0
+
+    n1 = n1 / n1_norm
+    n2 = n2 / n2_norm
+
+    m1 = np.cross(n1, b2 / (np.linalg.norm(b2) + 1e-8))
+    x  = np.dot(n1, n2)
+    y  = np.dot(m1, n2)
+
+    return float(np.degrees(np.arctan2(y, x)))
+
+
+def _extract_native_dihedrals(coords: np.ndarray) -> list:
+    """
+    Extract pseudo phi/psi angles from Cα-only coordinates.
+    Uses four consecutive Cα atoms to approximate each dihedral.
+    Returns list of {"phi": float, "psi": float} in degrees.
+    """
+    N = len(coords)
+    angles = []
+
+    for i in range(N):
+        # phi: uses Cα(i-2), Cα(i-1), Cα(i), Cα(i+1)
+        if i >= 2 and i < N - 1:
+            phi = _compute_dihedral(
+                coords[i-2], coords[i-1], coords[i], coords[i+1]
+            )
+        elif i == 0 or i == 1:
+            # No prior atoms — mirror the next valid angle
+            phi = _compute_dihedral(
+                coords[0], coords[1], coords[2], coords[3]
+            ) if N >= 4 else 0.0
+        else:
+            phi = angles[-1]["phi"] if angles else 0.0
+
+        # psi: uses Cα(i-1), Cα(i), Cα(i+1), Cα(i+2)
+        if i >= 1 and i < N - 2:
+            psi = _compute_dihedral(
+                coords[i-1], coords[i], coords[i+1], coords[i+2]
+            )
+        elif i >= N - 2:
+            psi = angles[-1]["psi"] if angles else 0.0
+        else:
+            psi = _compute_dihedral(
+                coords[0], coords[1], coords[2], coords[3]
+            ) if N >= 4 else 0.0
+
+        angles.append({
+            "phi": round(phi, 2),
+            "psi": round(psi, 2),
+        })
+
+    return angles
+
+
 @router.get(
     "/ramachandran",
     summary="Phi/psi angles for Ramachandran plot",
+    description=(
+        "Returns backbone dihedral angles for native structure, "
+        "trained agent, and random baseline. "
+        "Native angles computed from actual PDB Cα geometry. "
+        "Agent/random angles collected at episode end only (converged state). "
+        "Result cached after first call — restart server to recompute."
+    ),
 )
 def get_ramachandran():
-    """Return phi/psi angles — computed once, cached forever."""
+    """
+    Return phi/psi dihedral angles for Ramachandran plot.
+
+    Native  — computed from actual PDB Cα coordinates (real geometry).
+    Trained — collected at end of each episode (converged agent state).
+    Random  — collected at end of each episode (random baseline).
+    """
     global _ramachandran_cache
 
-    # Return cached result immediately if available
     if _ramachandran_cache is not None:
         return _ramachandran_cache
 
@@ -357,24 +442,24 @@ def get_ramachandran():
 
     from env.fold_env import FoldEnv as _FoldEnv
 
-    N_EPISODES = 5  # reduced from 20 — still meaningful, much faster
+    N_EPISODES = 10   # more episodes = richer plot
     pdb_id     = "1L2Y"
 
     native_angles  = []
     trained_angles = []
     random_angles  = []
 
-    # Native angles
-    env_native = _FoldEnv(pdb_id=pdb_id)
-    env_native.reset()
-    for phi, psi in zip(env_native.phi_angles, env_native.psi_angles):
-        native_angles.append({
-            "phi": round(float(np.degrees(phi)), 2),
-            "psi": round(float(np.degrees(psi)), 2),
-        })
+    # ── Native angles — from actual PDB Cα geometry ───────────
+    # This is the ground truth. Compute dihedrals from the real
+    # native coordinates, NOT from env.phi_angles (which are random).
+    env_ref = _FoldEnv(pdb_id=pdb_id)
+    native_angles = _extract_native_dihedrals(env_ref.native_coords)
 
-    # Trained agent — 5 episodes
-    for _ in range(N_EPISODES):
+    # ── Trained agent — collect ONLY at episode end ───────────
+    # Episode end = agent has converged or hit step limit.
+    # This gives us the angles the agent actually learned to prefer,
+    # not intermediate random states.
+    for ep in range(N_EPISODES):
         env_t = _FoldEnv(pdb_id=pdb_id)
         env_t.reset()
         done = False
@@ -387,14 +472,13 @@ def get_ramachandran():
             action = action % env_t.action_dim
             _, _, terminated, truncated, _ = env_t.step(action)
             done = terminated or truncated
-            for phi, psi in zip(env_t.phi_angles, env_t.psi_angles):
-                trained_angles.append({
-                    "phi": round(float(np.degrees(phi)), 2),
-                    "psi": round(float(np.degrees(psi)), 2),
-                })
 
-    # Random baseline — 5 episodes
-    for _ in range(N_EPISODES):
+        # Collect angles from FINAL Cα coordinates only
+        final_angles = _extract_native_dihedrals(env_t.ca_coords)
+        trained_angles.extend(final_angles)
+
+    # ── Random baseline — collect ONLY at episode end ─────────
+    for ep in range(N_EPISODES):
         env_r = _FoldEnv(pdb_id=pdb_id)
         env_r.reset()
         done = False
@@ -402,17 +486,21 @@ def get_ramachandran():
             action = env_r.action_space.sample()
             _, _, terminated, truncated, _ = env_r.step(action)
             done = terminated or truncated
-            for phi, psi in zip(env_r.phi_angles, env_r.psi_angles):
-                random_angles.append({
-                    "phi": round(float(np.degrees(phi)), 2),
-                    "psi": round(float(np.degrees(psi)), 2),
-                })
+
+        # Collect angles from FINAL Cα coordinates only
+        final_angles = _extract_native_dihedrals(env_r.ca_coords)
+        random_angles.extend(final_angles)
 
     _ramachandran_cache = {
         "native" : native_angles,
         "trained": trained_angles,
         "random" : random_angles,
     }
+
+    logger.info(
+        "[/ramachandran] Computed: %d native, %d trained, %d random angle pairs",
+        len(native_angles), len(trained_angles), len(random_angles),
+    )
 
     return _ramachandran_cache
 
