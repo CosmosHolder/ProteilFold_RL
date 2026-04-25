@@ -1,29 +1,22 @@
 """
 train.py
-ProteinFold-RL — Curriculum Training Loop (v2)
+ProteinFold-RL — Curriculum Training Loop (v3)
 
-Upgraded from single-protein v1 to 8-protein curriculum.
-
-What changed vs v1
+What changed vs v2
 ------------------
-- ProteinCurriculum drives protein selection each episode
-- Policy created once at MAX action dim — shared across all proteins
-- Action safely clamped to each protein's valid range
-- Per-episode log now includes protein ID + curriculum stage
-- Curriculum state saved alongside every checkpoint
-- Fresh start: old logs are cleared on each new run
-
-What did NOT change
--------------------
-- PPO update logic (identical)
-- HORIZON, GAMMA, all PPO hyperparameters (identical)
-- FoldEnv interface (identical)
-- Checkpoint format (identical)
+- PPOTrainer now receives total_steps so cosine scheduler is
+  configured correctly for the full run duration
+- CSV log gains two new columns: ss_reward, learning_rate
+- append_log() records ss_reward per episode + current LR
+- Console print shows LR every LOG_EVERY episodes
+- init_log() updated header to match new columns
+- All curriculum + checkpoint logic unchanged
 
 Run
 ---
-  python train.py              # full curriculum, 2000 episodes
-  python train.py --protein 1L2Y   # single-protein mode (v1 compat)
+  python train.py              # full curriculum, 500 episodes
+  python train.py --episodes 2000   # longer run
+  python train.py --protein 1L2Y   # single-protein mode
 """
 
 import argparse
@@ -34,28 +27,23 @@ import time
 import numpy as np
 import torch
 
-from env.fold_env import FoldEnv
+from env.fold_env import FoldEnv, MAX_STEPS
 from model.gnn_policy import GNNPolicyNetwork
 from agent.ppo import PPOTrainer, HORIZON
 from data.curriculum import ProteinCurriculum
 from config import MAX_ACTION_DIM, CHECKPOINT_PATH
 
 # ── Config ────────────────────────────────────────────────────
-N_EPISODES     = 500
-LOG_EVERY      = 5
+N_EPISODES  = 500
+LOG_EVERY   = 5
+SAVE_EVERY  = 100
 
-SAVE_EVERY     = 100
-
-LOG_FILE       = "logs/training_log.csv"
-CURR_STATE     = "checkpoints/curriculum_state.json"
-
-# Largest protein is 2HHB: 141 residues × 2 angles × 12 increments
-# Policy is always built at this size so weights are shared across
-# all proteins without any architecture change between episodes.
-
+LOG_FILE    = "logs/training_log.csv"
+CURR_STATE  = "checkpoints/curriculum_state.json"
 
 os.makedirs("checkpoints", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
+
 
 # ── Helpers ───────────────────────────────────────────────────
 
@@ -73,23 +61,28 @@ def init_log():
             "total_reward", "final_energy", "rmsd",
             "steps", "clashes",
             "policy_loss", "value_loss", "entropy",
+            "ss_reward",   # NEW: cumulative secondary-structure reward
+            "learning_rate",  # NEW: LR at end of episode
         ])
 
 
 def append_log(episode, protein, stage, ep_reward,
-               final_energy, rmsd, ep_steps, ep_clashes, stats):
+               final_energy, rmsd, ep_steps, ep_clashes,
+               stats, ep_ss_reward, current_lr):
     """Append one episode row to the CSV log."""
     with open(LOG_FILE, "a", newline="") as f:
         csv.writer(f).writerow([
             episode, protein, stage,
-            round(ep_reward,    4),
-            round(final_energy, 4),
-            round(rmsd,         4),
+            round(ep_reward,     4),
+            round(final_energy,  4),
+            round(rmsd,          4),
             ep_steps,
             ep_clashes,
             round(stats.get("policy_loss", 0), 4),
             round(stats.get("value_loss",  0), 4),
             round(stats.get("entropy",     0), 4),
+            round(ep_ss_reward,  4),
+            f"{current_lr:.2e}",
         ])
 
 
@@ -107,7 +100,7 @@ def train(n_episodes: int = N_EPISODES,
                      one protein only (v1 compatibility mode)
     """
     print("=" * 62)
-    print("ProteinFold-RL — Curriculum Training v2")
+    print("ProteinFold-RL — Curriculum Training v3")
     if single_protein:
         print(f"  Mode     : single-protein ({single_protein})")
     else:
@@ -124,8 +117,16 @@ def train(n_episodes: int = N_EPISODES,
         current_pdb = curriculum.current_protein().pdb_id
 
     # ── Policy — built once at MAX action dim ─────────────────
-    policy  = GNNPolicyNetwork(action_dim=MAX_ACTION_DIM)
-    trainer = PPOTrainer(policy=policy, action_dim=MAX_ACTION_DIM)
+    policy = GNNPolicyNetwork(action_dim=MAX_ACTION_DIM)
+
+    # Total expected steps — used to set cosine scheduler T_max.
+    # Conservative estimate: n_episodes × MAX_STEPS.
+    total_steps = n_episodes * MAX_STEPS
+    trainer = PPOTrainer(
+        policy=policy,
+        action_dim=MAX_ACTION_DIM,
+        total_steps=total_steps,
+    )
 
     # ── Environment — rebuilt when protein changes ────────────
     env           = FoldEnv(pdb_id=current_pdb)
@@ -140,7 +141,9 @@ def train(n_episodes: int = N_EPISODES,
     step_count  = 0
     start_time  = time.time()
 
-    print(f"\n[START] First protein: {current_pdb}\n")
+    print(f"\n[START] First protein: {current_pdb}")
+    print(f"  Initial LR : {trainer.get_lr():.2e}")
+    print(f"  Total steps (scheduler T_max): {total_steps}\n")
 
     # ── Episode loop ──────────────────────────────────────────
     for episode in range(1, n_episodes + 1):
@@ -163,6 +166,7 @@ def train(n_episodes: int = N_EPISODES,
         ep_reward  = 0.0
         ep_steps   = 0
         ep_clashes = 0
+        ep_ss_reward = 0.0   # NEW: accumulated SS reward this episode
         done       = False
         stats      = {}
 
@@ -172,18 +176,17 @@ def train(n_episodes: int = N_EPISODES,
             action, log_prob, value, entropy = policy.get_action(graph)
 
             # Clamp action to this protein's valid range.
-            # Policy outputs up to MAX_ACTION_DIM logits;
-            # only env.action_dim are valid for the current protein.
             action = action % env.action_dim
 
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
 
             trainer.store(graph, action, reward, log_prob, value, done)
-            ep_reward  += reward
-            ep_steps   += 1
-            ep_clashes += int(info["has_clash"])
-            step_count += 1
+            ep_reward    += reward
+            ep_steps     += 1
+            ep_clashes   += int(info["has_clash"])
+            ep_ss_reward += info.get("ss_reward", 0.0)  # NEW
+            step_count   += 1
 
             # PPO update every HORIZON steps
             if step_count % HORIZON == 0:
@@ -197,9 +200,10 @@ def train(n_episodes: int = N_EPISODES,
         # ── Episode metrics ───────────────────────────────────
         final_energy = info["energy"]
         rmsd         = compute_rmsd(env.ca_coords, native_coords)
+        current_lr   = trainer.get_lr()
 
-        if rmsd        < best_rmsd:    best_rmsd    = rmsd
-        if final_energy < best_energy: best_energy  = final_energy
+        if rmsd         < best_rmsd:   best_rmsd   = rmsd
+        if final_energy < best_energy: best_energy = final_energy
 
         # ── Record in curriculum + check advancement ──────────
         stage = 1
@@ -209,19 +213,24 @@ def train(n_episodes: int = N_EPISODES,
             stage = curriculum.current_stage
 
         # ── Log ───────────────────────────────────────────────
-        append_log(episode, episode_pdb, stage,
-                   ep_reward, final_energy, rmsd,
-                   ep_steps, ep_clashes, stats)
+        append_log(
+            episode, episode_pdb, stage,
+            ep_reward, final_energy, rmsd,
+            ep_steps, ep_clashes, stats,
+            ep_ss_reward, current_lr,      # NEW columns
+        )
 
         # ── Console ───────────────────────────────────────────
         if episode % LOG_EVERY == 0:
-            elapsed = (time.time() - start_time) / 60
+            elapsed     = (time.time() - start_time) / 60
             curr_status = curriculum.status() if curriculum else episode_pdb
             print(
                 f"Ep {episode:5d}/{n_episodes} | "
                 f"Reward {ep_reward:7.2f} | "
                 f"Energy {final_energy:7.2f} | "
                 f"RMSD {rmsd:.3f}Å | "
+                f"SS {ep_ss_reward:.1f} | "
+                f"LR {current_lr:.1e} | "
                 f"{curr_status} | "
                 f"{elapsed:.1f}m"
             )
@@ -232,7 +241,7 @@ def train(n_episodes: int = N_EPISODES,
             trainer.save(ckpt)
             if curriculum is not None:
                 curriculum.save(CURR_STATE)
-            print(f"  [CKPT] Episode {episode} saved.")
+            print(f"  [CKPT] Episode {episode} saved. LR={current_lr:.2e}")
 
     # ── Final ─────────────────────────────────────────────────
     elapsed = (time.time() - start_time) / 60
@@ -241,6 +250,7 @@ def train(n_episodes: int = N_EPISODES,
     print(f"  Episodes    : {n_episodes}")
     print(f"  Best RMSD   : {best_rmsd:.3f} Å")
     print(f"  Best Energy : {best_energy:.3f} kcal/mol")
+    print(f"  Final LR    : {trainer.get_lr():.2e}")
     print(f"  Time        : {elapsed:.1f} minutes")
     print(f"  Log         : {LOG_FILE}")
     print("=" * 62)
