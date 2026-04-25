@@ -548,11 +548,11 @@
       <div class="crit-badges">
         <div class="crit-badge amber">
           <div class="crit-badge-dot"></div>
-          7 critical events detected
+          <span id="badge-events">— critical events detected</span>
         </div>
         <div class="crit-badge blue">
           <div class="crit-badge-dot"></div>
-          Best episode · 50 steps
+          Best episode · <span id="badge-steps">—</span> steps
         </div>
       </div>
     </div>
@@ -560,27 +560,27 @@
     <!-- Summary strip -->
     <div class="crit-strip">
       <div class="cs-item">
-        <div class="cs-val" style="color:var(--teal);">3</div>
+        <div class="cs-val" style="color:var(--teal);" id="strip-big-drops">—</div>
         <div class="cs-lbl">Big energy drops</div>
         <div class="cs-bar" style="--w:60%;--d:0.1s;background:var(--teal);"></div>
       </div>
       <div class="cs-item">
-        <div class="cs-val" style="color:var(--amber);">1</div>
+        <div class="cs-val" style="color:var(--amber);" id="strip-rmsd">—</div>
         <div class="cs-lbl">RMSD threshold cross</div>
         <div class="cs-bar" style="--w:20%;--d:0.15s;background:var(--amber);"></div>
       </div>
       <div class="cs-item">
-        <div class="cs-val" style="color:var(--red);">2</div>
+        <div class="cs-val" style="color:var(--red);" id="strip-clashes">—</div>
         <div class="cs-lbl">Clash events</div>
         <div class="cs-bar" style="--w:40%;--d:0.2s;background:var(--red);"></div>
       </div>
       <div class="cs-item">
-        <div class="cs-val" style="color:var(--blue);">1</div>
+        <div class="cs-val" style="color:var(--blue);" id="strip-conv">—</div>
         <div class="cs-lbl">Convergence point</div>
         <div class="cs-bar" style="--w:20%;--d:0.25s;background:var(--blue);"></div>
       </div>
       <div class="cs-item">
-        <div class="cs-val">−89.3</div>
+        <div class="cs-val" id="strip-total-drop">—</div>
         <div class="cs-lbl">Total energy drop (kcal)</div>
         <div class="cs-bar" style="--w:90%;--d:0.3s;background:var(--blue-mid);"></div>
       </div>
@@ -749,58 +749,15 @@
   <section class="section" style="border-bottom:none; padding-bottom:0;">
     <div class="section-label">05 — scientific insights · what the critical points tell us</div>
 
-    <div class="insight-row">
-      <div class="insight-cell" style="--ac:var(--teal);">
-        <div class="ic-label">Biggest single step</div>
-        <div class="ic-val" style="color:var(--teal);">Step 7</div>
-        <div class="ic-desc">
-          The largest single energy drop occurred at step 7 —
-          a φ angle adjustment on residue 4 collapsed
-          an unstable loop into an α-helical conformation,
-          dropping energy by <strong style="color:var(--teal);">18.4 kcal/mol</strong> instantly.
-        </div>
-      </div>
-      <div class="insight-cell" style="--ac:var(--amber);">
-        <div class="ic-label">Native threshold crossing</div>
-        <div class="ic-val" style="color:var(--amber);">Step 31</div>
-        <div class="ic-desc">
-          RMSD dipped below 2Å at step 31 — the agent found
-          a near-native conformation for the first time.
-          This triggered the <strong style="color:var(--amber);">+15.0 RMSD bonus</strong>,
-          the largest single reward in the episode.
-        </div>
-      </div>
-      <div class="insight-cell" style="--ac:var(--red);">
-        <div class="ic-label">Clash events</div>
-        <div class="ic-val" style="color:var(--red);">Steps 14, 23</div>
-        <div class="ic-desc">
-          Two steric clashes were detected and reverted.
-          Both occurred near Pro residues — known clash hotspots.
-          The agent <strong style="color:var(--red);">avoided these regions</strong>
-          in subsequent steps, showing learned avoidance.
-        </div>
-      </div>
-      <div class="insight-cell" style="--ac:var(--blue);">
-        <div class="ic-label">Convergence reached</div>
-        <div class="ic-val" style="color:var(--blue);">Step 47</div>
-        <div class="ic-desc">
-          Energy stabilised at step 47 — the agent had explored
-          all productive moves from this conformation.
-          Final energy: <strong style="color:var(--blue);">22.2 kcal/mol</strong>.
-          The episode terminated 3 steps before the max limit.
-        </div>
-      </div>
+    <div class="insight-row" id="insight-row">
+      <!-- Populated dynamically from API data -->
     </div>
   </section>
 
   <!-- ══ PASS BADGE ══ -->
   <div class="pass-row" style="margin-top:3rem;">
     <div class="pass-dot"></div>
-    <div class="pass-text">
-      7 critical events detected · biggest drop: −18.4 kcal/mol at step 7 ·
-      RMSD &lt;2Å crossed at step 31 · convergence at step 47 ·
-      final energy: 22.228 kcal/mol ✓
-    </div>
+    <div class="pass-text" id="pass-text">Loading real trajectory data...</div>
   </div>
 
   <!-- ══ FOOTER ══ -->
@@ -813,6 +770,8 @@
 
 </div><!-- end page -->
 
+<script src="assets/js/stars.js"></script>
+<script src="assets/js/ticker.js"></script>
 <script src="assets/js/stars.js"></script>
 <script src="assets/js/ticker.js"></script>
 <script>
@@ -833,233 +792,12 @@ const PF = {
   mono:    "'Space Mono', monospace",
 };
 
-/* ══════════════════════════════════════════
-   TRAJECTORY DATA
-   Realistic synthetic data matching the known
-   best episode: 50 steps, final energy 22.228
-══════════════════════════════════════════ */
-const STEPS = Array.from({length: 50}, (_, i) => i + 1);
-
-// Energy trajectory — starts ~111, ends at 22.228
-// Critical drops at steps 7, 19, 31 (matching our annotations)
-function buildEnergyTrace() {
-  const trace = [];
-  let e = 111.5;
-  for (let i = 0; i < 50; i++) {
-    const step = i + 1;
-    if (step === 7)  { e -= 18.4; }          // BIG DROP — helix formation
-    else if (step === 14) { /* clash — energy unchanged */ }
-    else if (step === 19) { e -= 12.7; }     // BIG DROP — beta turn
-    else if (step === 23) { /* clash — energy unchanged */ }
-    else if (step === 31) { e -= 9.8; }      // BIG DROP — RMSD crosses
-    else if (step < 7)   { e -= (Math.random() * 2.5 + 0.2); }
-    else if (step < 19)  { e -= (Math.random() * 1.8 - 0.3); }
-    else if (step < 31)  { e -= (Math.random() * 1.5 - 0.2); }
-    else if (step < 47)  { e -= (Math.random() * 1.2 - 0.4); }
-    else                 { e += (Math.random() * 0.1 - 0.05); } // converge
-    e = Math.max(22.228, e);
-    trace.push(parseFloat(e.toFixed(3)));
-  }
-  return trace;
-}
-
-const energyTrace = buildEnergyTrace();
-
-// Energy delta per step
-const deltaTrace = energyTrace.map((e, i) =>
-  i === 0 ? 0 : parseFloat((e - energyTrace[i-1]).toFixed(3))
-);
-
-// Reward per step
-const rewardTrace = STEPS.map((s, i) => {
-  const delta = deltaTrace[i];
-  let r = -0.3; // step penalty always
-  if ([14, 23].includes(s)) return parseFloat((r - 2.0).toFixed(2)); // clash
-  r += 1.0; // no clash
-  if (delta < -1.0) r += 8.0;
-  else if (delta < 0) r += 2.0;
-  else r -= 1.0;
-  if (s === 31) r += 15.0; // RMSD bonus
-  return parseFloat(r.toFixed(2));
-});
-
-// Cumulative energy reduction
-const startE = energyTrace[0];
-const cumulTrace = energyTrace.map(e => parseFloat((startE - e).toFixed(3)));
-
-/* Critical point definitions */
-const CRITICAL_POINTS = [
-  {
-    step: 7,
-    type: 'big',
-    badge: 'Big Energy Drop',
-    title: 'α-Helix Formation — Residue 4 φ Angle',
-    desc: 'A 30° clockwise adjustment to the φ angle on residue Trp-4 collapsed an unstable random-coil segment into a stable α-helical conformation. The largest single energy drop of the entire episode.',
-    energy: energyTrace[6],
-    delta: -18.4,
-    reward: rewardTrace[6],
-    rmsd: 6.2,
-    energyPct: 100,
-    rewardPct: 95,
-  },
-  {
-    step: 14,
-    type: 'clash',
-    badge: 'Steric Clash',
-    title: 'Pro-12 Clash — Move Reverted',
-    desc: 'A ψ angle rotation on Pro-12 brought two Cα atoms within 1.5Å — a physically impossible overlap. The move was reverted. No energy change recorded. The agent learned to avoid this Pro residue neighbourhood.',
-    energy: energyTrace[13],
-    delta: 0,
-    reward: rewardTrace[13],
-    rmsd: 5.1,
-    energyPct: 0,
-    rewardPct: 8,
-  },
-  {
-    step: 19,
-    type: 'big',
-    badge: 'Big Energy Drop',
-    title: 'β-Turn Closure — Residues 11–14',
-    desc: 'Coordinated ψ angle adjustments across residues 11–14 closed a β-turn, forming a compact loop structure. This transition is characteristic of Trp-cage folding and contributed the second-largest energy drop.',
-    energy: energyTrace[18],
-    delta: -12.7,
-    reward: rewardTrace[18],
-    rmsd: 4.3,
-    energyPct: 69,
-    rewardPct: 72,
-  },
-  {
-    step: 23,
-    type: 'clash',
-    badge: 'Steric Clash',
-    title: 'Gly-15 Clash — Second Revert',
-    desc: 'A second steric clash near the flexible glycine linker. Post-clash, the agent shifted its action distribution away from this backbone region — visible as a change in subsequent step quality.',
-    energy: energyTrace[22],
-    delta: 0,
-    reward: rewardTrace[22],
-    rmsd: 3.9,
-    energyPct: 0,
-    rewardPct: 8,
-  },
-  {
-    step: 31,
-    type: 'rmsd',
-    badge: 'RMSD Threshold',
-    title: 'Native Threshold Crossed — RMSD &lt;2Å',
-    desc: 'The Cα RMSD vs the native 1L2Y structure dropped below 2.0Å for the first time. This triggered the +15.0 RMSD bonus — the single largest reward of the episode. The agent found a near-native conformation.',
-    energy: energyTrace[30],
-    delta: -9.8,
-    reward: rewardTrace[30],
-    rmsd: 1.87,
-    energyPct: 53,
-    rewardPct: 100,
-  },
-  {
-    step: 38,
-    type: 'big',
-    badge: 'Big Energy Drop',
-    title: 'Hydrophobic Core Packing',
-    desc: 'The Trp-6 indole side chain locked into its native cage position — the defining structural feature of the Trp-cage miniprotein. Packing tightened the hydrophobic core and produced a significant energy reduction.',
-    energy: energyTrace[37],
-    delta: -7.1,
-    reward: rewardTrace[37],
-    rmsd: 1.54,
-    energyPct: 39,
-    rewardPct: 56,
-  },
-  {
-    step: 47,
-    type: 'conv',
-    badge: 'Convergence',
-    title: 'Energy Minimum Reached — Episode Ends',
-    desc: 'Energy stabilised across 5 consecutive steps with Δ &lt; 0.01 kcal/mol. The agent exhausted productive moves from this conformation. The episode terminated at the local energy minimum: 22.228 kcal/mol.',
-    energy: 22.228,
-    delta: -0.003,
-    reward: rewardTrace[46],
-    rmsd: 1.313,
-    energyPct: 12,
-    rewardPct: 22,
-  },
-];
-
-/* ══════════════════════════════════════════
-   BUILD TIMELINE CARDS
-══════════════════════════════════════════ */
 const typeColors = {
   big:   PF.teal,
   rmsd:  PF.amber,
   clash: PF.red,
   conv:  PF.blue,
 };
-
-const container = document.getElementById('timeline-cards');
-CRITICAL_POINTS.forEach(cp => {
-  const card = document.createElement('div');
-  card.className = `cp-card type-${cp.type}`;
-  card.innerHTML = `
-    <div class="cp-node"></div>
-    <div class="cp-step">
-      <div class="cp-step-num" style="color:${typeColors[cp.type]}">${cp.step}</div>
-      <div class="cp-step-lbl">Step</div>
-    </div>
-    <div class="cp-main">
-      <div class="cp-type-badge">${cp.badge}</div>
-      <div class="cp-event-title">${cp.title}</div>
-      <div class="cp-desc">${cp.desc}</div>
-    </div>
-    <div class="cp-metrics">
-      <div class="cp-metric-row">
-        <span class="cp-metric-key">Energy</span>
-        <span class="cp-metric-val" style="color:var(--blue)">${cp.energy.toFixed(1)} kcal</span>
-      </div>
-      <div class="cp-metric-row">
-        <span class="cp-metric-key">Δ Energy</span>
-        <span class="cp-metric-val" style="color:${cp.delta < 0 ? PF.teal : cp.delta === 0 ? PF.amber : PF.red}">
-          ${cp.delta > 0 ? '+' : ''}${cp.delta.toFixed(1)} kcal
-        </span>
-      </div>
-      <div class="cp-metric-row">
-        <span class="cp-metric-key">Reward</span>
-        <span class="cp-metric-val" style="color:${cp.reward > 0 ? PF.teal : PF.red}">
-          ${cp.reward > 0 ? '+' : ''}${cp.reward.toFixed(1)}
-        </span>
-      </div>
-      <div class="cp-metric-row">
-        <span class="cp-metric-key">RMSD</span>
-        <span class="cp-metric-val" style="color:${cp.rmsd < 2 ? PF.teal : PF.textMid}">
-          ${cp.rmsd.toFixed(2)} Å ${cp.rmsd < 2 ? '✓' : ''}
-        </span>
-      </div>
-    </div>
-    <div class="cp-bar-col">
-      <div>
-        <div class="cp-bar-label">Energy impact</div>
-        <div class="cp-bar-track">
-          <div class="cp-bar-fill" style="--w:${cp.energyPct}%;background:${typeColors[cp.type]};"></div>
-        </div>
-        <div class="cp-bar-nums"><span>0</span><span>${cp.energyPct}%</span></div>
-      </div>
-      <div>
-        <div class="cp-bar-label">Reward impact</div>
-        <div class="cp-bar-track">
-          <div class="cp-bar-fill" style="--w:${cp.rewardPct}%;background:${PF.amber};"></div>
-        </div>
-        <div class="cp-bar-nums"><span>0</span><span>${cp.rewardPct}%</span></div>
-      </div>
-    </div>
-  `;
-  container.appendChild(card);
-});
-
-// Animate bars on scroll
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      e.target.querySelectorAll('.cp-bar-fill').forEach(b => b.classList.add('animated'));
-    }
-  });
-}, { threshold: 0.2 });
-document.querySelectorAll('.cp-card').forEach(c => observer.observe(c));
 
 /* ══════════════════════════════════════════
    CHART DEFAULTS
@@ -1079,228 +817,540 @@ const sharedTooltip = {
 
 const sharedScales = {
   x: {
-    grid: { color: PF.border },
-    ticks: { color: PF.textDim, font: { family: PF.mono, size: 11 }, maxTicksLimit: 10,
-             callback: v => `S${v}` },
+    grid:  { color: PF.border },
+    ticks: { color: PF.textDim, font: { family: PF.mono, size: 11 },
+             maxTicksLimit: 10, callback: v => `S${v}` },
   },
   y: {
-    grid: { color: PF.border },
+    grid:  { color: PF.border },
     ticks: { color: PF.textDim, font: { family: PF.mono, size: 11 } },
   },
 };
 
-/* ── Critical point annotations ── */
-const criticalSteps = CRITICAL_POINTS.map(cp => cp.step - 1); // 0-indexed
+/* ══════════════════════════════════════════
+   CHART INSTANCES — stored so we can destroy
+   if we ever need to rebuild
+══════════════════════════════════════════ */
+let mainChart = null, rewardChart = null, deltaChart = null, cumulChart = null;
 
 /* ══════════════════════════════════════════
-   MAIN TRAJECTORY CHART
+   LOADING STATE
 ══════════════════════════════════════════ */
-// Custom plugin to draw critical point markers on the chart
-const criticalMarkerPlugin = {
-  id: 'criticalMarkers',
-  afterDraw(chart) {
-    const { ctx, scales: { x, y } } = chart;
-    CRITICAL_POINTS.forEach(cp => {
-      const xi = x.getPixelForValue(cp.step - 1);
-      const yi = y.getPixelForValue(energyTrace[cp.step - 1]);
-      const color = typeColors[cp.type];
-
-      // Vertical dashed line
-      ctx.save();
-      ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = color + '55';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(xi, chart.chartArea.top);
-      ctx.lineTo(xi, chart.chartArea.bottom);
-      ctx.stroke();
-      ctx.restore();
-
-      // Dot on the line
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(xi, yi, 6, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = '#020c18';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-
-      // Step label above dot
-      ctx.save();
-      ctx.font = `700 11px ${PF.mono}`;
-      ctx.fillStyle = color;
-      ctx.textAlign = 'center';
-      ctx.fillText(`S${cp.step}`, xi, yi - 14);
-      ctx.restore();
-    });
+function showLoading() {
+  document.getElementById('timeline-cards').innerHTML = `
+    <div style="
+      font-family:var(--mono);
+      color:var(--text-dim);
+      font-size:13px;
+      padding:2.5rem 1.5rem;
+      letter-spacing:0.08em;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    ">
+      <div style="
+        width:12px;height:12px;
+        border:2px solid rgba(61,159,255,0.2);
+        border-top-color:var(--blue);
+        border-radius:50%;
+        animation:spin 0.8s linear infinite;
+        flex-shrink:0;
+      "></div>
+      Loading real trajectory data from backend...
+    </div>
+  `;
+  /* Inject spinner keyframe once */
+  if (!document.getElementById('spin-style')) {
+    const s = document.createElement('style');
+    s.id = 'spin-style';
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
   }
-};
+}
 
-new Chart(document.getElementById('main-trajectory-chart'), {
-  type: 'line',
-  plugins: [criticalMarkerPlugin],
-  data: {
-    labels: STEPS,
-    datasets: [{
-      label: 'Energy (kcal/mol)',
-      data: energyTrace,
-      borderColor: PF.blue,
-      borderWidth: 2,
-      pointRadius: 0,
-      tension: 0.3,
-      fill: { target: 'origin', above: 'rgba(61,159,255,0.04)' },
-    }],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 1400, easing: 'easeInOutQuart' },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        ...sharedTooltip,
-        callbacks: {
-          title: i => `Step ${i[0].label}`,
-          label: i => ` Energy: ${i.parsed.y.toFixed(2)} kcal/mol`,
-          afterLabel: i => {
-            const cp = CRITICAL_POINTS.find(c => c.step === i[0].label);
-            return cp ? ` ★ ${cp.badge}` : '';
+/* ══════════════════════════════════════════
+   ERROR STATE
+══════════════════════════════════════════ */
+function showError(err) {
+  document.getElementById('timeline-cards').innerHTML = `
+    <div style="
+      font-family:var(--mono);
+      font-size:13px;
+      padding:2.5rem 1.5rem;
+      letter-spacing:0.08em;
+      line-height:2;
+    ">
+      <div style="color:var(--red);margin-bottom:0.5rem;">
+        ✗ Backend offline — cannot load trajectory data.
+      </div>
+      <div style="color:var(--text-dim);">
+        Start the FastAPI server first:<br>
+        <span style="color:var(--blue);">uvicorn main:app --port 8000</span>
+      </div>
+    </div>
+  `;
+  /* Also update pass badge */
+  document.getElementById('pass-text').textContent =
+    'Backend offline — start uvicorn at port 8000 to load real data.';
+  document.getElementById('pass-text').style.color = 'rgba(255,95,95,0.8)';
+  console.error('[critical.html] fetch error:', err);
+}
+
+/* ══════════════════════════════════════════
+   WIRE SUMMARY STRIP
+══════════════════════════════════════════ */
+function wireSummary(s) {
+  document.getElementById('badge-events').textContent =
+    `${s.total_events} critical events detected`;
+  document.getElementById('badge-steps').textContent  = s.total_steps;
+  document.getElementById('strip-big-drops').textContent = s.big_drops;
+  document.getElementById('strip-rmsd').textContent      = s.rmsd_crossings;
+  document.getElementById('strip-clashes').textContent   = s.clashes;
+  document.getElementById('strip-conv').textContent      = s.convergences;
+  document.getElementById('strip-total-drop').textContent =
+    `−${s.total_drop.toFixed(1)}`;
+}
+
+/* ══════════════════════════════════════════
+   BUILD TIMELINE CARDS
+══════════════════════════════════════════ */
+function buildTimeline(criticalPoints, energyTrace) {
+  const container = document.getElementById('timeline-cards');
+  container.innerHTML = '';
+
+  /* Compute per-event impact percentages from real data */
+  const maxDrop  = Math.max(...criticalPoints.map(cp => Math.abs(cp.energy_delta)));
+  const maxRew   = Math.max(...criticalPoints.map(cp => Math.abs(cp.reward)));
+
+  criticalPoints.forEach(cp => {
+    const energyPct = maxDrop > 0
+      ? Math.round((Math.abs(cp.energy_delta) / maxDrop) * 100) : 0;
+    const rewardPct = maxRew > 0
+      ? Math.round((Math.abs(cp.reward) / maxRew) * 100) : 0;
+    const color = typeColors[cp.type] || PF.blue;
+
+    /* Badge label fallback */
+    const badge = cp.badge || cp.type;
+
+    /* Metric colour helpers */
+    const deltaColor = cp.energy_delta < 0 ? PF.teal
+                     : cp.energy_delta === 0 ? PF.amber : PF.red;
+    const rewardColor = cp.reward > 0 ? PF.teal : PF.red;
+    const rmsdColor   = (cp.rmsd !== undefined && cp.rmsd < 2) ? PF.teal : PF.textMid;
+    const rmsdCheck   = (cp.rmsd !== undefined && cp.rmsd < 2) ? ' ✓' : '';
+
+    const card = document.createElement('div');
+    card.className = `cp-card type-${cp.type}`;
+    card.innerHTML = `
+      <div class="cp-node"></div>
+      <div class="cp-step">
+        <div class="cp-step-num" style="color:${color}">${cp.step}</div>
+        <div class="cp-step-lbl">Step</div>
+      </div>
+      <div class="cp-main">
+        <div class="cp-type-badge">${badge}</div>
+        <div class="cp-event-title">${cp.title || badge}</div>
+        <div class="cp-desc">${cp.description || cp.desc || ''}</div>
+      </div>
+      <div class="cp-metrics">
+        <div class="cp-metric-row">
+          <span class="cp-metric-key">Energy</span>
+          <span class="cp-metric-val" style="color:var(--blue)">
+            ${cp.energy.toFixed(1)} kcal
+          </span>
+        </div>
+        <div class="cp-metric-row">
+          <span class="cp-metric-key">Δ Energy</span>
+          <span class="cp-metric-val" style="color:${deltaColor}">
+            ${cp.energy_delta > 0 ? '+' : ''}${cp.energy_delta.toFixed(1)} kcal
+          </span>
+        </div>
+        <div class="cp-metric-row">
+          <span class="cp-metric-key">Reward</span>
+          <span class="cp-metric-val" style="color:${rewardColor}">
+            ${cp.reward > 0 ? '+' : ''}${cp.reward.toFixed(1)}
+          </span>
+        </div>
+        <div class="cp-metric-row">
+          <span class="cp-metric-key">RMSD</span>
+          <span class="cp-metric-val" style="color:${rmsdColor}">
+            ${cp.rmsd !== undefined ? cp.rmsd.toFixed(2) + ' Å' + rmsdCheck : '—'}
+          </span>
+        </div>
+      </div>
+      <div class="cp-bar-col">
+        <div>
+          <div class="cp-bar-label">Energy impact</div>
+          <div class="cp-bar-track">
+            <div class="cp-bar-fill" style="--w:${energyPct}%;background:${color};"></div>
+          </div>
+          <div class="cp-bar-nums"><span>0</span><span>${energyPct}%</span></div>
+        </div>
+        <div>
+          <div class="cp-bar-label">Reward impact</div>
+          <div class="cp-bar-track">
+            <div class="cp-bar-fill" style="--w:${rewardPct}%;background:${PF.amber};"></div>
+          </div>
+          <div class="cp-bar-nums"><span>0</span><span>${rewardPct}%</span></div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  /* Animate bars on scroll */
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting)
+        e.target.querySelectorAll('.cp-bar-fill').forEach(b => b.classList.add('animated'));
+    });
+  }, { threshold: 0.2 });
+  document.querySelectorAll('.cp-card').forEach(c => observer.observe(c));
+}
+
+/* ══════════════════════════════════════════
+   BUILD INSIGHT CARDS
+══════════════════════════════════════════ */
+function buildInsights(criticalPoints, summary) {
+  /* Biggest energy drop */
+  const bigDrop = criticalPoints.reduce((best, cp) =>
+    cp.energy_delta < (best ? best.energy_delta : 0) ? cp : best, null);
+
+  /* RMSD threshold crossing */
+  const rmsdEvent = criticalPoints.find(cp => cp.type === 'rmsd');
+
+  /* All clashes */
+  const clashes = criticalPoints.filter(cp => cp.type === 'clash');
+  const clashSteps = clashes.map(c => `Step ${c.step}`).join(', ') || '—';
+
+  /* Convergence */
+  const convEvent = criticalPoints.find(cp => cp.type === 'conv');
+
+  const row = document.getElementById('insight-row');
+  row.innerHTML = `
+    <div class="insight-cell" style="--ac:var(--teal);">
+      <div class="ic-label">Biggest single step</div>
+      <div class="ic-val" style="color:var(--teal);">
+        ${bigDrop ? `Step ${bigDrop.step}` : '—'}
+      </div>
+      <div class="ic-desc">
+        The largest single energy drop of the episode occurred at step
+        ${bigDrop ? bigDrop.step : '—'} — a dihedral angle adjustment that
+        dropped energy by
+        <strong style="color:var(--teal);">
+          ${bigDrop ? Math.abs(bigDrop.energy_delta).toFixed(1) : '—'} kcal/mol
+        </strong>
+        in a single move, the most impactful step of the entire trajectory.
+      </div>
+    </div>
+
+    <div class="insight-cell" style="--ac:var(--amber);">
+      <div class="ic-label">Native threshold crossing</div>
+      <div class="ic-val" style="color:var(--amber);">
+        ${rmsdEvent ? `Step ${rmsdEvent.step}` : 'Not reached'}
+      </div>
+      <div class="ic-desc">
+        ${rmsdEvent
+          ? `RMSD dipped below 2Å at step ${rmsdEvent.step} — the agent found
+             a near-native conformation for the first time. This triggered the
+             <strong style="color:var(--amber);">+15.0 RMSD bonus</strong>,
+             the largest single reward in the episode.`
+          : `The agent did not cross the 2Å native-structure threshold in this episode.
+             Best RMSD achieved: <strong style="color:var(--amber);">
+             ${summary.best_rmsd !== undefined ? summary.best_rmsd.toFixed(3) + ' Å' : '—'}
+             </strong>.`
+        }
+      </div>
+    </div>
+
+    <div class="insight-cell" style="--ac:var(--red);">
+      <div class="ic-label">Clash events</div>
+      <div class="ic-val" style="color:var(--red);">
+        ${clashes.length > 0 ? clashSteps : 'None'}
+      </div>
+      <div class="ic-desc">
+        ${clashes.length > 0
+          ? `${clashes.length} steric clash${clashes.length > 1 ? 'es' : ''} detected and reverted
+             at ${clashSteps}. Each clash brought atoms within 1.5Å — a physically
+             impossible overlap. The agent
+             <strong style="color:var(--red);">learned to avoid these regions</strong>
+             in subsequent steps.`
+          : `No steric clashes detected in this episode — the agent navigated
+             the conformational space without any physically invalid moves.
+             <strong style="color:var(--red);">Clean trajectory.</strong>`
+        }
+      </div>
+    </div>
+
+    <div class="insight-cell" style="--ac:var(--blue);">
+      <div class="ic-label">Convergence reached</div>
+      <div class="ic-val" style="color:var(--blue);">
+        ${convEvent ? `Step ${convEvent.step}` : 'Max steps'}
+      </div>
+      <div class="ic-desc">
+        ${convEvent
+          ? `Energy stabilised at step ${convEvent.step} — the agent exhausted
+             all productive moves. Final energy:
+             <strong style="color:var(--blue);">
+               ${summary.end_energy.toFixed(1)} kcal/mol
+             </strong>.
+             The episode terminated at the local energy minimum.`
+          : `The episode ran to the maximum step limit without full convergence.
+             Final energy:
+             <strong style="color:var(--blue);">
+               ${summary.end_energy.toFixed(1)} kcal/mol
+             </strong>.`
+        }
+      </div>
+    </div>
+  `;
+}
+
+/* ══════════════════════════════════════════
+   BUILD ALL CHARTS
+══════════════════════════════════════════ */
+function buildCharts(steps, energyTrace, deltaTrace, rewardTrace, cumulTrace, criticalPoints) {
+
+  /* Custom plugin — annotate critical points on main chart */
+  const criticalMarkerPlugin = {
+    id: 'criticalMarkers',
+    afterDraw(chart) {
+      const { ctx, scales: { x, y } } = chart;
+      criticalPoints.forEach((cp, idx) => {
+        const xi = x.getPixelForValue(cp.step - 1);
+        const yi = y.getPixelForValue(energyTrace[cp.step - 1]);
+        if (xi === undefined || yi === undefined) return;
+        const color = typeColors[cp.type] || PF.blue;
+
+        /* Vertical dashed line */
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = color + '55';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xi, chart.chartArea.top);
+        ctx.lineTo(xi, chart.chartArea.bottom);
+        ctx.stroke();
+        ctx.restore();
+
+        /* Dot */
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(xi, yi, 6, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#020c18';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        /* Label */
+        ctx.save();
+        ctx.font = `700 11px ${PF.mono}`;
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.fillText(`S${cp.step}`, xi, yi - 14);
+        ctx.restore();
+      });
+    }
+  };
+
+  /* Destroy old instances if rebuilding */
+  [mainChart, rewardChart, deltaChart, cumulChart].forEach(c => c && c.destroy());
+
+  /* ── Main trajectory chart ── */
+  mainChart = new Chart(document.getElementById('main-trajectory-chart'), {
+    type: 'line',
+    plugins: [criticalMarkerPlugin],
+    data: {
+      labels: steps,
+      datasets: [{
+        label: 'Energy (kcal/mol)',
+        data: energyTrace,
+        borderColor: PF.blue,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: { target: 'origin', above: 'rgba(61,159,255,0.04)' },
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 1400, easing: 'easeInOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...sharedTooltip,
+          callbacks: {
+            title: i => `Step ${i[0].label}`,
+            label: i => ` Energy: ${i.parsed.y.toFixed(2)} kcal/mol`,
+            afterLabel: i => {
+              const cp = criticalPoints.find(c => c.step === i[0].label);
+              return cp ? ` ★ ${cp.badge || cp.type}` : '';
+            },
           },
         },
       },
-    },
-    scales: {
-      ...sharedScales,
-      y: {
-        ...sharedScales.y,
-        ticks: {
-          ...sharedScales.y.ticks,
-          callback: v => `${v} kcal`,
-        },
+      scales: {
+        ...sharedScales,
+        y: { ...sharedScales.y, ticks: { ...sharedScales.y.ticks,
+               callback: v => `${v} kcal` } },
       },
     },
-  },
-});
+  });
 
-/* ══════════════════════════════════════════
-   REWARD CHART
-══════════════════════════════════════════ */
-new Chart(document.getElementById('reward-chart'), {
-  type: 'bar',
-  data: {
-    labels: STEPS,
-    datasets: [{
-      data: rewardTrace,
-      backgroundColor: rewardTrace.map(r =>
-        r >= 8  ? 'rgba(0,212,170,0.7)'   :
-        r >= 2  ? 'rgba(0,212,170,0.35)'  :
-        r >= 0  ? 'rgba(61,159,255,0.35)' :
-                  'rgba(255,95,95,0.55)'
-      ),
-      borderWidth: 0,
-    }],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 1200 },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        ...sharedTooltip,
-        callbacks: {
+  /* ── Reward chart ── */
+  rewardChart = new Chart(document.getElementById('reward-chart'), {
+    type: 'bar',
+    data: {
+      labels: steps,
+      datasets: [{
+        data: rewardTrace,
+        backgroundColor: rewardTrace.map(r =>
+          r >= 8  ? 'rgba(0,212,170,0.70)'  :
+          r >= 2  ? 'rgba(0,212,170,0.35)'  :
+          r >= 0  ? 'rgba(61,159,255,0.35)' :
+                    'rgba(255,95,95,0.55)'
+        ),
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1200 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...sharedTooltip, callbacks: {
           title: i => `Step ${i[0].label}`,
           label: i => ` Reward: ${i.parsed.y > 0 ? '+' : ''}${i.parsed.y.toFixed(1)}`,
-        },
+        }},
       },
+      scales: sharedScales,
     },
-    scales: sharedScales,
-  },
-});
+  });
 
-/* ══════════════════════════════════════════
-   ENERGY DELTA CHART
-══════════════════════════════════════════ */
-new Chart(document.getElementById('delta-chart'), {
-  type: 'bar',
-  data: {
-    labels: STEPS,
-    datasets: [{
-      data: deltaTrace,
-      backgroundColor: deltaTrace.map(d =>
-        d < -1   ? 'rgba(0,212,170,0.75)'  :
-        d < 0    ? 'rgba(0,212,170,0.35)'  :
-        d === 0  ? 'rgba(255,179,71,0.45)' :
-                   'rgba(255,95,95,0.5)'
-      ),
-      borderWidth: 0,
-    }],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 1400 },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        ...sharedTooltip,
-        callbacks: {
+  /* ── Energy delta chart ── */
+  deltaChart = new Chart(document.getElementById('delta-chart'), {
+    type: 'bar',
+    data: {
+      labels: steps,
+      datasets: [{
+        data: deltaTrace,
+        backgroundColor: deltaTrace.map(d =>
+          d < -1   ? 'rgba(0,212,170,0.75)'  :
+          d < 0    ? 'rgba(0,212,170,0.35)'  :
+          d === 0  ? 'rgba(255,179,71,0.45)' :
+                     'rgba(255,95,95,0.50)'
+        ),
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...sharedTooltip, callbacks: {
           title: i => `Step ${i[0].label}`,
           label: i => ` ΔE: ${i.parsed.y > 0 ? '+' : ''}${i.parsed.y.toFixed(2)} kcal/mol`,
-        },
+        }},
       },
+      scales: { ...sharedScales, y: { ...sharedScales.y,
+        ticks: { ...sharedScales.y.ticks, callback: v => `${v} kcal` } } },
     },
-    scales: {
-      ...sharedScales,
-      y: {
-        ...sharedScales.y,
-        ticks: { ...sharedScales.y.ticks, callback: v => `${v} kcal` },
-      },
-    },
-  },
-});
+  });
 
-/* ══════════════════════════════════════════
-   CUMULATIVE CHART
-══════════════════════════════════════════ */
-new Chart(document.getElementById('cumulative-chart'), {
-  type: 'line',
-  data: {
-    labels: STEPS,
-    datasets: [{
-      data: cumulTrace,
-      borderColor: PF.blue,
-      borderWidth: 2,
-      pointRadius: 0,
-      tension: 0.3,
-      fill: { target: 'origin', above: 'rgba(61,159,255,0.06)' },
-    }],
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: { duration: 1600 },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        ...sharedTooltip,
-        callbacks: {
+  /* ── Cumulative chart ── */
+  cumulChart = new Chart(document.getElementById('cumulative-chart'), {
+    type: 'line',
+    data: {
+      labels: steps,
+      datasets: [{
+        data: cumulTrace,
+        borderColor: PF.blue,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: { target: 'origin', above: 'rgba(61,159,255,0.06)' },
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...sharedTooltip, callbacks: {
           title: i => `Step ${i[0].label}`,
           label: i => ` Cumulative drop: ${i.parsed.y.toFixed(1)} kcal/mol`,
-        },
+        }},
       },
+      scales: { ...sharedScales, y: { ...sharedScales.y,
+        ticks: { ...sharedScales.y.ticks, callback: v => `−${v} kcal` } } },
     },
-    scales: {
-      ...sharedScales,
-      y: {
-        ...sharedScales.y,
-        ticks: { ...sharedScales.y.ticks, callback: v => `−${v} kcal` },
-      },
-    },
-  },
-});
+  });
+}
+
+/* ══════════════════════════════════════════
+   WIRE PASS BADGE
+══════════════════════════════════════════ */
+function wirePassBadge(summary, criticalPoints) {
+  const bigDrop  = criticalPoints.find(cp => cp.type === 'big');
+  const rmsdEvt  = criticalPoints.find(cp => cp.type === 'rmsd');
+  const convEvt  = criticalPoints.find(cp => cp.type === 'conv');
+  const maxDelta = criticalPoints.reduce(
+    (m, cp) => cp.energy_delta < m ? cp.energy_delta : m, 0);
+
+  const parts = [
+    `${summary.total_events} critical events detected`,
+    bigDrop ? `biggest drop: −${Math.abs(maxDelta).toFixed(1)} kcal/mol at step ${bigDrop.step}` : '',
+    rmsdEvt ? `RMSD <2Å crossed at step ${rmsdEvt.step}` : '',
+    convEvt ? `convergence at step ${convEvt.step}` : '',
+    `final energy: ${summary.end_energy.toFixed(3)} kcal/mol ✓`,
+  ].filter(Boolean).join(' · ');
+
+  document.getElementById('pass-text').textContent = parts;
+}
+
+/* ══════════════════════════════════════════
+   BUILD FULL PAGE FROM API DATA
+══════════════════════════════════════════ */
+function buildPage(data) {
+  const { summary, trajectory, critical_points } = data;
+
+  const steps       = trajectory.map(t => t.step);
+  const energyTrace = trajectory.map(t => t.energy);
+  const deltaTrace  = trajectory.map(t => t.energy_delta);
+  const rewardTrace = trajectory.map(t => t.reward);
+  const cumulTrace  = trajectory.map(t =>
+    parseFloat((summary.start_energy - t.energy).toFixed(3))
+  );
+
+  wireSummary(summary);
+  buildTimeline(critical_points, energyTrace);
+  buildInsights(critical_points, summary);
+  buildCharts(steps, energyTrace, deltaTrace, rewardTrace, cumulTrace, critical_points);
+  wirePassBadge(summary, critical_points);
+}
+
+/* ══════════════════════════════════════════
+   FETCH FROM API
+══════════════════════════════════════════ */
+async function loadData() {
+  showLoading();
+  try {
+    const res = await fetch('http://localhost:8000/critical-points', {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    buildPage(data);
+  } catch (err) {
+    showError(err);
+  }
+}
+
+loadData();
 
 </script>
 </body>

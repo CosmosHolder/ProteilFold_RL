@@ -63,6 +63,7 @@ def run_episode(env: FoldEnv, policy: GNNPolicyNetwork,
     obs, info = env.reset()
     trajectory = []
     done = False
+    prev_energy = info["energy"]
 
     while not done:
         graph = env.get_graph()
@@ -76,12 +77,18 @@ def run_episode(env: FoldEnv, policy: GNNPolicyNetwork,
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
 
+        step_rmsd     = compute_rmsd(env.ca_coords, env.native_coords)
+        energy_delta  = round(info["energy"] - prev_energy, 4)
+        prev_energy   = info["energy"]
+
         trajectory.append({
-            "step"     : info["step"],
-            "energy"   : info["energy"],
-            "has_clash": info["has_clash"],
-            "reward"   : reward,
-            "coords"   : env.ca_coords.copy(),
+            "step"        : info["step"],
+            "energy"      : info["energy"],
+            "energy_delta": energy_delta,
+            "rmsd"        : round(step_rmsd, 4),
+            "has_clash"   : info["has_clash"],
+            "reward"      : reward,
+            "coords"      : env.ca_coords.copy(),
         })
 
     rmsd = compute_rmsd(env.ca_coords, env.native_coords)
@@ -177,12 +184,14 @@ def evaluate(pdb_id: str = "1L2Y", n_episodes: int = EVAL_EPISODES):
     traj_path = "logs/best_trajectory.csv"
     with open(traj_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["step", "energy", "reward", "has_clash"])
+        writer.writerow(["step", "energy", "energy_delta", "rmsd", "reward", "has_clash"])
         for t in best_traj:
             writer.writerow([
                 t["step"],
-                round(t["energy"], 4),
-                round(t["reward"], 4),
+                round(t["energy"],       4),
+                round(t["energy_delta"], 4),
+                round(t["rmsd"],         4),
+                round(t["reward"],       4),
                 int(t["has_clash"]),
             ])
     print(f"\n  Best trajectory → {traj_path}")

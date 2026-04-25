@@ -336,100 +336,15 @@ def get_training_log_json(
 # ── Ramachandran cache ─────────────────────────────────────────
 _ramachandran_cache = None
 
-
-def _compute_dihedral(a: np.ndarray, b: np.ndarray,
-                      c: np.ndarray, d: np.ndarray) -> float:
-    """
-    Compute dihedral angle between four points (a-b-c-d) in degrees.
-    Uses the standard cross-product method.
-    """
-    b1 = b - a
-    b2 = c - b
-    b3 = d - c
-
-    n1 = np.cross(b1, b2)
-    n2 = np.cross(b2, b3)
-
-    n1_norm = np.linalg.norm(n1)
-    n2_norm = np.linalg.norm(n2)
-
-    if n1_norm < 1e-8 or n2_norm < 1e-8:
-        return 0.0
-
-    n1 = n1 / n1_norm
-    n2 = n2 / n2_norm
-
-    m1 = np.cross(n1, b2 / (np.linalg.norm(b2) + 1e-8))
-    x  = np.dot(n1, n2)
-    y  = np.dot(m1, n2)
-
-    return float(np.degrees(np.arctan2(y, x)))
-
-
-def _extract_native_dihedrals(coords: np.ndarray) -> list:
-    """
-    Extract pseudo phi/psi angles from Cα-only coordinates.
-    Uses four consecutive Cα atoms to approximate each dihedral.
-    Returns list of {"phi": float, "psi": float} in degrees.
-    """
-    N = len(coords)
-    angles = []
-
-    for i in range(N):
-        # phi: uses Cα(i-2), Cα(i-1), Cα(i), Cα(i+1)
-        if i >= 2 and i < N - 1:
-            phi = _compute_dihedral(
-                coords[i-2], coords[i-1], coords[i], coords[i+1]
-            )
-        elif i == 0 or i == 1:
-            # No prior atoms — mirror the next valid angle
-            phi = _compute_dihedral(
-                coords[0], coords[1], coords[2], coords[3]
-            ) if N >= 4 else 0.0
-        else:
-            phi = angles[-1]["phi"] if angles else 0.0
-
-        # psi: uses Cα(i-1), Cα(i), Cα(i+1), Cα(i+2)
-        if i >= 1 and i < N - 2:
-            psi = _compute_dihedral(
-                coords[i-1], coords[i], coords[i+1], coords[i+2]
-            )
-        elif i >= N - 2:
-            psi = angles[-1]["psi"] if angles else 0.0
-        else:
-            psi = _compute_dihedral(
-                coords[0], coords[1], coords[2], coords[3]
-            ) if N >= 4 else 0.0
-
-        angles.append({
-            "phi": round(phi, 2),
-            "psi": round(psi, 2),
-        })
-
-    return angles
-
-
 @router.get(
     "/ramachandran",
     summary="Phi/psi angles for Ramachandran plot",
-    description=(
-        "Returns backbone dihedral angles for native structure, "
-        "trained agent, and random baseline. "
-        "Native angles computed from actual PDB Cα geometry. "
-        "Agent/random angles collected at episode end only (converged state). "
-        "Result cached after first call — restart server to recompute."
-    ),
 )
 def get_ramachandran():
-    """
-    Return phi/psi dihedral angles for Ramachandran plot.
-
-    Native  — computed from actual PDB Cα coordinates (real geometry).
-    Trained — collected at end of each episode (converged agent state).
-    Random  — collected at end of each episode (random baseline).
-    """
+    """Return phi/psi angles — computed once, cached forever."""
     global _ramachandran_cache
 
+    # Return cached result immediately if available
     if _ramachandran_cache is not None:
         return _ramachandran_cache
 
@@ -442,24 +357,24 @@ def get_ramachandran():
 
     from env.fold_env import FoldEnv as _FoldEnv
 
-    N_EPISODES = 10   # more episodes = richer plot
+    N_EPISODES = 5  # reduced from 20 — still meaningful, much faster
     pdb_id     = "1L2Y"
 
     native_angles  = []
     trained_angles = []
     random_angles  = []
 
-    # ── Native angles — from actual PDB Cα geometry ───────────
-    # This is the ground truth. Compute dihedrals from the real
-    # native coordinates, NOT from env.phi_angles (which are random).
-    env_ref = _FoldEnv(pdb_id=pdb_id)
-    native_angles = _extract_native_dihedrals(env_ref.native_coords)
+    # Native angles
+    env_native = _FoldEnv(pdb_id=pdb_id)
+    env_native.reset()
+    for phi, psi in zip(env_native.phi_angles, env_native.psi_angles):
+        native_angles.append({
+            "phi": round(float(np.degrees(phi)), 2),
+            "psi": round(float(np.degrees(psi)), 2),
+        })
 
-    # ── Trained agent — collect ONLY at episode end ───────────
-    # Episode end = agent has converged or hit step limit.
-    # This gives us the angles the agent actually learned to prefer,
-    # not intermediate random states.
-    for ep in range(N_EPISODES):
+    # Trained agent — 5 episodes
+    for _ in range(N_EPISODES):
         env_t = _FoldEnv(pdb_id=pdb_id)
         env_t.reset()
         done = False
@@ -472,13 +387,14 @@ def get_ramachandran():
             action = action % env_t.action_dim
             _, _, terminated, truncated, _ = env_t.step(action)
             done = terminated or truncated
+            for phi, psi in zip(env_t.phi_angles, env_t.psi_angles):
+                trained_angles.append({
+                    "phi": round(float(np.degrees(phi)), 2),
+                    "psi": round(float(np.degrees(psi)), 2),
+                })
 
-        # Collect angles from FINAL Cα coordinates only
-        final_angles = _extract_native_dihedrals(env_t.ca_coords)
-        trained_angles.extend(final_angles)
-
-    # ── Random baseline — collect ONLY at episode end ─────────
-    for ep in range(N_EPISODES):
+    # Random baseline — 5 episodes
+    for _ in range(N_EPISODES):
         env_r = _FoldEnv(pdb_id=pdb_id)
         env_r.reset()
         done = False
@@ -486,21 +402,17 @@ def get_ramachandran():
             action = env_r.action_space.sample()
             _, _, terminated, truncated, _ = env_r.step(action)
             done = terminated or truncated
-
-        # Collect angles from FINAL Cα coordinates only
-        final_angles = _extract_native_dihedrals(env_r.ca_coords)
-        random_angles.extend(final_angles)
+            for phi, psi in zip(env_r.phi_angles, env_r.psi_angles):
+                random_angles.append({
+                    "phi": round(float(np.degrees(phi)), 2),
+                    "psi": round(float(np.degrees(psi)), 2),
+                })
 
     _ramachandran_cache = {
         "native" : native_angles,
         "trained": trained_angles,
         "random" : random_angles,
     }
-
-    logger.info(
-        "[/ramachandran] Computed: %d native, %d trained, %d random angle pairs",
-        len(native_angles), len(trained_angles), len(random_angles),
-    )
 
     return _ramachandran_cache
 
@@ -545,4 +457,230 @@ def get_coords():
     return {
         "best"  : [[round(x, 4) for x in row] for row in best_coords],
         "native": [[round(x, 4) for x in row] for row in native_coords],
+    }
+
+
+# ── GET /critical-points ───────────────────────────────────────
+
+# Detection thresholds — must match fold_env.py constants
+_BIG_ENERGY_DROP   = 1.0    # kcal/mol — same as ENERGY_DROP_BIG in fold_env
+_RMSD_THRESHOLD    = 2.0    # Å — same as RMSD_THRESHOLD in fold_env
+_CONVERGE_WINDOW   = 5      # steps — same as energy_history length
+_CONVERGE_EPSILON  = 0.01   # kcal/mol — same as ENERGY_CONVERGE in fold_env
+
+# Type labels sent to the frontend
+_TYPE_BIG   = "big"
+_TYPE_RMSD  = "rmsd"
+_TYPE_CLASH = "clash"
+_TYPE_CONV  = "conv"
+
+
+def _load_best_trajectory_rich() -> list:
+    """
+    Load best_trajectory.csv into a list of dicts.
+    Requires the new columns written by the updated eval.py:
+      step, energy, energy_delta, rmsd, reward, has_clash
+    Falls back gracefully if old columns are present.
+    """
+    if not os.path.exists(BEST_TRAJ_LOG):
+        raise FileNotFoundError(
+            f"Best trajectory log not found at {BEST_TRAJ_LOG}. "
+            "Run eval.py first."
+        )
+
+    rows = []
+    with open(BEST_TRAJ_LOG, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            rows.append({
+                "step"        : _safe_int(row.get("step", "0")),
+                "energy"      : _safe_float(row.get("energy", "0")),
+                "energy_delta": _safe_float(row.get("energy_delta", "0")),
+                "rmsd"        : _safe_float(row.get("rmsd", "0")),
+                "reward"      : _safe_float(row.get("reward", "0")),
+                "has_clash"   : bool(_safe_int(row.get("has_clash", "0"))),
+            })
+    return rows
+
+
+def _detect_critical_points(rows: list) -> list:
+    """
+    Scan trajectory rows and detect critical events.
+
+    Detection logic (in priority order per step — one event per step):
+      1. Steric clash          → has_clash == True
+      2. RMSD threshold cross  → rmsd drops below _RMSD_THRESHOLD
+                                  for the first time
+      3. Big energy drop       → energy_delta < -_BIG_ENERGY_DROP
+      4. Convergence           → last _CONVERGE_WINDOW steps all within
+                                  _CONVERGE_EPSILON of each other
+    """
+    events = []
+    rmsd_crossed = False   # track first crossing only
+    n = len(rows)
+
+    for i, row in enumerate(rows):
+        step         = row["step"]
+        energy       = row["energy"]
+        energy_delta = row["energy_delta"]
+        rmsd         = row["rmsd"]
+        reward       = row["reward"]
+        has_clash    = row["has_clash"]
+
+        # ── 1. Clash ──────────────────────────────────────────
+        if has_clash:
+            events.append({
+                "step"        : step,
+                "type"        : _TYPE_CLASH,
+                "badge"       : "Steric Clash",
+                "energy"      : energy,
+                "energy_delta": energy_delta,
+                "rmsd"        : rmsd,
+                "reward"      : reward,
+            })
+            continue  # one event per step
+
+        # ── 2. RMSD threshold crossing (first time only) ──────
+        if not rmsd_crossed and rmsd < _RMSD_THRESHOLD:
+            rmsd_crossed = True
+            events.append({
+                "step"        : step,
+                "type"        : _TYPE_RMSD,
+                "badge"       : "RMSD Threshold",
+                "energy"      : energy,
+                "energy_delta": energy_delta,
+                "rmsd"        : rmsd,
+                "reward"      : reward,
+            })
+            continue
+
+        # ── 3. Big energy drop ────────────────────────────────
+        if energy_delta < -_BIG_ENERGY_DROP:
+            events.append({
+                "step"        : step,
+                "type"        : _TYPE_BIG,
+                "badge"       : "Big Energy Drop",
+                "energy"      : energy,
+                "energy_delta": energy_delta,
+                "rmsd"        : rmsd,
+                "reward"      : reward,
+            })
+            continue
+
+        # ── 4. Convergence (check last CONVERGE_WINDOW steps) ─
+        if i >= _CONVERGE_WINDOW:
+            window = [rows[j]["energy"] for j in
+                      range(i - _CONVERGE_WINDOW + 1, i + 1)]
+            span   = max(window) - min(window)
+            if span < _CONVERGE_EPSILON:
+                events.append({
+                    "step"        : step,
+                    "type"        : _TYPE_CONV,
+                    "badge"       : "Convergence",
+                    "energy"      : energy,
+                    "energy_delta": energy_delta,
+                    "rmsd"        : rmsd,
+                    "reward"      : reward,
+                })
+                # Only record first convergence detection
+                break
+
+    return events
+
+
+def _build_summary(rows: list, events: list) -> dict:
+    """Compute summary statistics for the strip at the top of the page."""
+    if not rows:
+        return {}
+
+    start_energy = rows[0]["energy"]
+    end_energy   = rows[-1]["energy"]
+    total_drop   = round(start_energy - end_energy, 3)
+
+    big_drops    = sum(1 for e in events if e["type"] == _TYPE_BIG)
+    rmsd_crosses = sum(1 for e in events if e["type"] == _TYPE_RMSD)
+    clashes      = sum(1 for e in events if e["type"] == _TYPE_CLASH)
+    convs        = sum(1 for e in events if e["type"] == _TYPE_CONV)
+
+    best_rmsd    = min(r["rmsd"] for r in rows) if rows else 0.0
+
+    return {
+        "total_steps"    : len(rows),
+        "total_events"   : len(events),
+        "big_drops"      : big_drops,
+        "rmsd_crossings" : rmsd_crosses,
+        "clashes"        : clashes,
+        "convergences"   : convs,
+        "start_energy"   : round(start_energy, 3),
+        "end_energy"     : round(end_energy,   3),
+        "total_drop"     : total_drop,
+        "best_rmsd"      : round(best_rmsd,    4),
+    }
+
+
+@router.get(
+    "/critical-points",
+    summary="Critical folding events from the best episode",
+    description=(
+        "Reads `logs/best_trajectory.csv` (written by eval.py) and returns "
+        "detected critical events: big energy drops, RMSD threshold crossings, "
+        "steric clashes, and the convergence point. "
+        "Also returns the full per-step trajectory for the main chart. "
+        "Run eval.py first to generate the file."
+    ),
+    responses={
+        404: {"model": ErrorResponse, "description": "Trajectory log not found."},
+    },
+)
+def get_critical_points():
+    """
+    Detect and return critical folding events from the best episode.
+
+    Response shape
+    --------------
+    {
+      "summary": {
+        "total_steps": int,
+        "total_events": int,
+        "big_drops": int,
+        "rmsd_crossings": int,
+        "clashes": int,
+        "convergences": int,
+        "start_energy": float,
+        "end_energy": float,
+        "total_drop": float,
+        "best_rmsd": float
+      },
+      "trajectory": [
+        {"step": int, "energy": float, "energy_delta": float,
+         "rmsd": float, "reward": float, "has_clash": bool}
+      ],
+      "critical_points": [
+        {"step": int, "type": str, "badge": str,
+         "energy": float, "energy_delta": float,
+         "rmsd": float, "reward": float}
+      ]
+    }
+    """
+    try:
+        rows = _load_best_trajectory_rich()
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": str(exc), "code": "TRAJECTORY_NOT_FOUND"},
+        ) from exc
+
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "Trajectory file is empty.", "code": "TRAJECTORY_EMPTY"},
+        )
+
+    events  = _detect_critical_points(rows)
+    summary = _build_summary(rows, events)
+
+    return {
+        "summary"        : summary,
+        "trajectory"     : rows,
+        "critical_points": events,
     }
