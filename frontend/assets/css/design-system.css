@@ -1,13 +1,13 @@
 /* ============================================================
-   ProteinFold-RL — Shared Design System v2
+   ProteinFold-RL — Shared Design System v3
+   Readability upgrade via !important overrides —
+   beats inline <style> blocks without touching HTML files.
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
 
-/* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── Base ── */
 :root {
   --bg:        #020c18;
   --bg2:       #040f1f;
@@ -20,14 +20,14 @@
   --red:       #ff5f5f;
   --red-dim:   rgba(255,95,95,0.10);
   --amber:     #ffb347;
-  --text:      #ddeeff;
-  --text-dim:  rgba(180,210,240,0.45);
-  --text-mid:  rgba(180,210,240,0.70);
-  --border:    rgba(61,159,255,0.10);
-  --border-hi: rgba(61,159,255,0.22);
+  --text:      #eaf4ff;
+  --text-dim:  rgba(180,210,240,0.72);
+  --text-mid:  rgba(180,210,240,0.90);
+  --border:    rgba(61,159,255,0.12);
+  --border-hi: rgba(61,159,255,0.30);
   --mono:      'Space Mono', monospace;
   --sans:      'Syne', sans-serif;
-  --nav-h:     56px;
+  --nav-h:     60px;
 }
 
 html {
@@ -42,14 +42,13 @@ body {
   color: var(--text);
   font-family: var(--sans);
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.7;
   overflow-x: hidden;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Stars canvas ── */
 #stars-canvas {
   position: fixed;
   top: 0; left: 0;
@@ -58,11 +57,7 @@ body {
   z-index: 0;
 }
 
-/* ── Page wrapper ── */
-.page {
-  position: relative;
-  z-index: 2;
-}
+.page { position: relative; z-index: 2; }
 
 /* ============================================================
    NAV
@@ -74,17 +69,16 @@ body {
   padding: 0 2.5rem;
   height: var(--nav-h);
   border-bottom: 0.5px solid var(--border);
-  background: rgba(2,12,24,0.96);
+  background: rgba(2,12,24,0.97);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   position: sticky;
   top: 0;
   z-index: 100;
 }
-
 .nav-logo {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   color: var(--blue);
   display: flex;
@@ -93,10 +87,8 @@ body {
   text-decoration: none;
   white-space: nowrap;
 }
-
 .nav-logo-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px; height: 8px;
   background: var(--blue);
   border-radius: 50%;
   flex-shrink: 0;
@@ -106,22 +98,20 @@ body {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.2; }
 }
-
 .nav-links {
   display: flex;
   list-style: none;
   height: var(--nav-h);
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
 }
 .nav-links a {
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 22px;
   height: 100%;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-dim);
   text-decoration: none;
@@ -130,12 +120,11 @@ body {
   white-space: nowrap;
 }
 .nav-links a:first-child { border-left: 0.5px solid var(--border); }
-.nav-links a:hover        { color: var(--blue); background: var(--blue-dim); }
-.nav-links a.active       { color: var(--blue); background: var(--blue-dim); }
-
+.nav-links a:hover  { color: var(--blue); background: var(--blue-dim); }
+.nav-links a.active { color: var(--blue); background: var(--blue-dim); }
 .nav-right {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-dim);
   letter-spacing: 0.1em;
   white-space: nowrap;
@@ -148,7 +137,7 @@ body {
   border-bottom: 0.5px solid var(--border);
   background: var(--bg2);
   overflow: hidden;
-  height: 38px;
+  height: 42px;
   display: flex;
   align-items: center;
 }
@@ -165,8 +154,8 @@ body {
 }
 .ticker-item {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   color: var(--text-dim);
   padding: 0 28px;
   border-right: 0.5px solid var(--border);
@@ -175,7 +164,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
+  height: 42px;
 }
 .ticker-item .v-blue  { color: var(--blue); }
 .ticker-item .v-teal  { color: var(--teal); }
@@ -186,10 +175,10 @@ body {
    ============================================================ */
 .section-label {
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.2em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(61,159,255,0.4);
+  color: rgba(61,159,255,0.60);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -197,8 +186,7 @@ body {
 }
 .section-label::after {
   content: '';
-  flex: 1;
-  height: 0.5px;
+  flex: 1; height: 0.5px;
   background: var(--border);
 }
 
@@ -209,14 +197,13 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 1rem 2.5rem;
-  background: rgba(0,212,170,0.04);
-  border-top: 0.5px solid rgba(0,212,170,0.12);
-  border-bottom: 0.5px solid rgba(0,212,170,0.12);
+  padding: 1.1rem 2.5rem;
+  background: rgba(0,212,170,0.05);
+  border-top: 0.5px solid rgba(0,212,170,0.15);
+  border-bottom: 0.5px solid rgba(0,212,170,0.15);
 }
 .pass-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--teal);
   flex-shrink: 0;
@@ -224,14 +211,14 @@ body {
 }
 @keyframes pass-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,170,0.5); }
-  50%       { box-shadow: 0 0 0 7px rgba(0,212,170,0); }
+  50%       { box-shadow: 0 0 0 8px rgba(0,212,170,0); }
 }
 .pass-text {
   font-family: var(--mono);
-  font-size: 10px;
-  color: rgba(0,212,170,0.7);
-  letter-spacing: 0.1em;
-  line-height: 1.7;
+  font-size: 13px;
+  color: rgba(0,212,170,0.90);
+  letter-spacing: 0.07em;
+  line-height: 1.8;
 }
 
 /* ============================================================
@@ -249,15 +236,15 @@ body {
 }
 .footer-l {
   font-family: var(--mono);
-  font-size: 9px;
-  color: rgba(120,160,200,0.3);
+  font-size: 11px;
+  color: rgba(120,160,200,0.60);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .footer-r {
   font-family: var(--mono);
-  font-size: 9px;
-  color: rgba(61,159,255,0.3);
+  font-size: 11px;
+  color: rgba(61,159,255,0.60);
   letter-spacing: 0.1em;
 }
 
@@ -268,9 +255,9 @@ body {
   background: var(--blue);
   color: #020c18;
   border: none;
-  padding: 11px 26px;
+  padding: 13px 30px;
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -281,18 +268,14 @@ body {
   align-items: center;
   line-height: 1;
 }
-.btn-primary:hover {
-  background: #72baff;
-  transform: translateY(-1px);
-}
-
+.btn-primary:hover { background: #72baff; transform: translateY(-1px); }
 .btn-ghost {
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text-mid);
   border: 0.5px solid var(--border-hi);
-  padding: 11px 26px;
+  padding: 13px 30px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
   border-radius: 2px;
   transition: all 0.18s;
@@ -302,39 +285,174 @@ body {
   align-items: center;
   line-height: 1;
 }
-.btn-ghost:hover {
-  border-color: var(--blue);
-  color: var(--blue);
-}
+.btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
 
 /* ============================================================
    TAGS
    ============================================================ */
 .tag {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.1em;
-  padding: 5px 12px;
-  border: 0.5px solid rgba(61,159,255,0.15);
+  padding: 6px 14px;
+  border: 0.5px solid rgba(61,159,255,0.20);
   color: var(--text-dim);
   border-radius: 1px;
   transition: all 0.15s;
   display: inline-block;
   line-height: 1;
 }
-.tag:hover {
-  border-color: var(--blue);
-  color: var(--blue);
-  background: var(--blue-dim);
-}
+.tag:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
 
 /* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 768px) {
-  .nav           { padding: 0 1.25rem; }
-  .nav-links     { display: none; }
-  .nav-right     { font-size: 9px; }
-  .pass-row      { padding: 1rem 1.25rem; }
-  .footer        { padding: 1.25rem; }
+  .nav       { padding: 0 1.25rem; }
+  .nav-links { display: none; }
+  .pass-row  { padding: 1rem 1.25rem; }
+  .footer    { padding: 1.25rem; }
 }
+
+/* ============================================================
+   READABILITY OVERRIDES
+   !important beats inline <style> blocks that load after this file.
+   All classes are defined in per-page <style> blocks with tiny px
+   values — these overrides fix them globally in one place.
+   ============================================================ */
+
+/* ── Labels & eyebrows (was 8–9px) ── */
+.dm-lbl,
+.vs-label,
+.mt-win-badge,
+.section-label,
+.dash-eyebrow,
+.demo-eyebrow,
+.cmp-eyebrow,
+.sci-eyebrow,
+.loop-idx,
+.loop-key,
+.ctrl-label,
+.metric-lbl,
+.metric-sub,
+.chart-box-meta,
+.chart-box-title,
+.chart-card-meta,
+.chart-card-title,
+.dist-card-title,
+.table-card-title,
+.rm-lbl,
+.strip-lbl,
+.rl-diagram-label,
+.result-chart-label,
+.step-log-label,
+.verdict-section-label,
+.insight-label,
+.status-badge,
+.status-info,
+.health-badge,
+.health-meta,
+.agent-desc,
+.opt-badge,
+.cmp-badge,
+.pp-desc,
+.slider-lbl,
+.slider-hint,
+.cmp-title,
+.mt-header-cell,
+.vs-win,
+.protein-label,
+.verdict-text,
+.sci-tag,
+.bar-name { font-size: 12px !important; }
+
+/* ── Secondary text (was 10–11px) ── */
+.agent-name,
+.arch-para,
+.cmp-subtitle,
+.cmp-sub,
+.dash-subtitle,
+.demo-subtitle,
+.sci-subtitle,
+.idle-sub,
+.loading-sub,
+.loading-text,
+.loop-val,
+.ls-key,
+.ls-val,
+.mt-cell,
+.mt-cell.label,
+.mt-cell.improve,
+.mt-cell:not(:first-child),
+.opt-desc,
+.opt-name,
+.pp-key,
+.pp-val,
+.rr-condition,
+.slider-val,
+.stack-name,
+.stack-role,
+.bar-val,
+.verdict-body,
+.why-card-desc,
+.justify-body,
+.eq-desc,
+.eq-label,
+.arch-table td { font-size: 14px !important; }
+
+/* ── Body paragraphs (was 11px) ── */
+.why-para,
+.arch-para,
+.insight-desc { font-size: 15px !important; }
+
+/* ── Line height for readability ── */
+.why-para,
+.arch-para,
+.verdict-body,
+.why-card-desc,
+.justify-body,
+.insight-desc,
+.eq-desc { line-height: 2.0 !important; }
+
+/* ── Opacity: all text-dim instances ── */
+.dash-eyebrow,
+.demo-eyebrow,
+.cmp-eyebrow,
+.sci-eyebrow,
+.dash-subtitle,
+.demo-subtitle,
+.cmp-subtitle,
+.sci-subtitle,
+.metric-lbl,
+.metric-sub,
+.dm-lbl,
+.agent-desc,
+.loop-key,
+.loop-idx,
+.ctrl-label,
+.chart-box-meta,
+.chart-card-meta,
+.ls-key,
+.pp-desc,
+.pp-key,
+.slider-lbl,
+.slider-hint,
+.bar-name,
+.rm-lbl,
+.rl-diagram-label,
+.result-chart-label,
+.step-log-label,
+.verdict-section-label,
+.status-info,
+.health-meta,
+.protein-label { color: var(--text-dim) !important; }
+
+/* ── Padding bumps for breathing room ── */
+.why-card { padding: 1.4rem 1.5rem !important; }
+.insight-card { padding: 2rem !important; }
+.loop-card { padding: 2rem 1.75rem !important; }
+.ppo-param-row { padding: 0.8rem 1.25rem !important; }
+.reward-row { padding: 0.85rem 1.25rem !important; }
+.mt-row { padding: 1rem 1.5rem !important; }
+.live-stat-row { padding: 0.75rem 1rem !important; }
+.log-row { padding: 6px 10px !important; }
