@@ -21,6 +21,7 @@ Output : logs/ramachandran.png
 
 Run    : python analysis/ramachandran.py
          python analysis/ramachandran.py --protein 1YRF
+         this is running mechanism
 """
 
 import argparse
