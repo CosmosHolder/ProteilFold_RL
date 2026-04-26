@@ -21,6 +21,7 @@ Interface is identical to v1 — gnn_policy.py needs zero changes.
   EdgeEncoder(input_dim=4,  edge_dim=64)
 
 Run : python model/features.py
+this is the running mechanism
 """
 
 import torch
