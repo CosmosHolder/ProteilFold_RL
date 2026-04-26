@@ -458,6 +458,171 @@ def get_coords():
         "best"  : [[round(x, 4) for x in row] for row in best_coords],
         "native": [[round(x, 4) for x in row] for row in native_coords],
     }
+# ── GET /critical-points ──────────────────────────────────────
+
+@router.get(
+    "/critical-points",
+    summary="Critical folding events for the best episode",
+)
+def get_critical_points():
+    mm = get_model_manager()
+    if not mm.is_loaded:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"detail": "Model not loaded.", "code": "MODEL_NOT_LOADED"},
+        )
+
+    from env.fold_env import FoldEnv as _FoldEnv
+
+    pdb_id = "1L2Y"
+    env    = _FoldEnv(pdb_id=pdb_id)
+    obs, info = env.reset()
+
+    steps_data = []
+    done       = False
+
+    while not done:
+        graph = env.get_graph()
+        with torch.no_grad():
+            action, _, _, _ = mm.policy.get_action(graph, deterministic=True)
+        action = action % env.action_dim
+        obs, reward, terminated, truncated, step_info = env.step(action)
+        done = terminated or truncated
+
+        diff = env.ca_coords - env.native_coords
+        rmsd = float(np.sqrt(np.mean(np.sum(diff ** 2, axis=1))))
+
+        steps_data.append({
+            "step"        : int(step_info["step"]),
+            "energy"      : float(step_info["energy"]),
+            "energy_delta": float(step_info.get("energy_delta", 0.0)),
+            "has_clash"   : bool(step_info["has_clash"]),
+            "reward"      : float(reward),
+            "rmsd"        : round(rmsd, 4),
+        })
+
+    if not steps_data:
+        raise HTTPException(
+            status_code=500,
+            detail={"detail": "Episode produced no steps.", "code": "EMPTY_EPISODE"},
+        )
+
+    start_energy     = steps_data[0]["energy"]
+    end_energy       = steps_data[-1]["energy"]
+    start_rmsd       = steps_data[0]["rmsd"]
+    rmsd_threshold   = start_rmsd * 0.80
+    critical_points  = []
+    best_rmsd_so_far = start_rmsd
+    energies         = [s["energy"] for s in steps_data]
+
+    for i, s in enumerate(steps_data):
+
+        if s["energy_delta"] < -1.0:
+            critical_points.append({
+                "step"        : s["step"],
+                "type"        : "big",
+                "badge"       : "Big Energy Drop",
+                "title"       : f"Energy fell {abs(s['energy_delta']):.1f} kcal/mol",
+                "description" : (
+                    f"A single dihedral angle adjustment dropped energy by "
+                    f"{abs(s['energy_delta']):.2f} kcal/mol — the agent found a "
+                    f"significantly more stable backbone conformation."
+                ),
+                "energy"      : s["energy"],
+                "energy_delta": s["energy_delta"],
+                "reward"      : s["reward"],
+                "rmsd"        : s["rmsd"],
+            })
+
+        elif s["rmsd"] < best_rmsd_so_far * 0.90 and s["rmsd"] > 0:
+            label = "RMSD <2Å" if s["rmsd"] < 2.0 else "RMSD Improved"
+            critical_points.append({
+                "step"        : s["step"],
+                "type"        : "rmsd",
+                "badge"       : label,
+                "title"       : f"RMSD improved to {s['rmsd']:.3f} Å",
+                "description" : (
+                    f"Cα RMSD vs native structure dropped to {s['rmsd']:.3f} Å — "
+                    f"a {((best_rmsd_so_far - s['rmsd']) / best_rmsd_so_far * 100):.0f}% "
+                    f"improvement from the previous best ({best_rmsd_so_far:.2f} Å)."
+                    + (" Near-native conformation — +15.0 RMSD bonus triggered!"
+                       if s["rmsd"] < 2.0 else
+                       f" Best RMSD so far: {s['rmsd']:.3f} Å.")
+                ),
+                "energy"      : s["energy"],
+                "energy_delta": s["energy_delta"],
+                "reward"      : s["reward"],
+                "rmsd"        : s["rmsd"],
+            })
+            best_rmsd_so_far = s["rmsd"]
+
+        elif s["has_clash"]:
+            critical_points.append({
+                "step"        : s["step"],
+                "type"        : "clash",
+                "badge"       : "Steric Clash",
+                "title"       : "Atoms came within 1.5Å — move reverted",
+                "description" : (
+                    "Two Cα atoms collided below the 1.5Å clash threshold. "
+                    "The dihedral change was reverted. The agent received a "
+                    "−2.0 penalty and learned to avoid this region."
+                ),
+                "energy"      : s["energy"],
+                "energy_delta": s["energy_delta"],
+                "reward"      : s["reward"],
+                "rmsd"        : s["rmsd"],
+            })
+
+        if i >= 5:
+            window   = energies[i - 5 : i]
+            max_diff = max(window) - min(window)
+            if max_diff < 0.5:
+                already_conv = any(cp["type"] == "conv" for cp in critical_points)
+                if not already_conv:
+                    critical_points.append({
+                        "step"        : s["step"],
+                        "type"        : "conv",
+                        "badge"       : "Convergence",
+                        "title"       : f"Energy stabilised at {s['energy']:.1f} kcal/mol",
+                        "description" : (
+                            f"Energy varied by only {max_diff:.3f} kcal/mol over 5 "
+                            f"consecutive steps — local energy minimum found. "
+                            f"Episode terminated at step {s['step']}."
+                        ),
+                        "energy"      : s["energy"],
+                        "energy_delta": s["energy_delta"],
+                        "reward"      : s["reward"],
+                        "rmsd"        : s["rmsd"],
+                    })
+
+    critical_points.sort(key=lambda x: x["step"])
+
+    big_drops    = sum(1 for cp in critical_points if cp["type"] == "big")
+    rmsd_crosses = sum(1 for cp in critical_points if cp["type"] == "rmsd")
+    clashes      = sum(1 for cp in critical_points if cp["type"] == "clash")
+    convergences = sum(1 for cp in critical_points if cp["type"] == "conv")
+
+    summary = {
+        "protein"            : pdb_id,
+        "total_steps"        : len(steps_data),
+        "total_events"       : len(critical_points),
+        "big_drops"          : big_drops,
+        "rmsd_crossings"     : rmsd_crosses,
+        "clashes"            : clashes,
+        "convergences"       : convergences,
+        "start_energy"       : round(start_energy, 3),
+        "end_energy"         : round(end_energy, 3),
+        "total_drop"         : round(start_energy - end_energy, 3),
+        "best_rmsd"          : round(min(s["rmsd"] for s in steps_data), 3),
+        "start_rmsd"         : round(start_rmsd, 3),
+        "rmsd_threshold_used": round(rmsd_threshold, 3),
+    }
+
+    return {
+        "summary"        : summary,
+        "trajectory"     : steps_data,
+        "critical_points": critical_points,
+    }
 
 
 # ── GET /critical-points ───────────────────────────────────────
