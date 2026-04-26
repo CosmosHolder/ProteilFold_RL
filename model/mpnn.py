@@ -14,6 +14,7 @@ Interface is identical to v1 — gnn_policy.py needs zero changes.
   → global embedding [1, 256]
 
 Run : python model/mpnn.py   (self-test)
+this is the running mechanism
 """
 
 import torch
