@@ -10,6 +10,7 @@ Reads logs/training_log.csv and produces:
 One job: turn raw training numbers into proof of learning.
 
 Run : python analysis/training_report.py
+this is the running mechanism
 """
 
 import os
