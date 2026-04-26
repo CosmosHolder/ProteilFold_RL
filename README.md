@@ -1,6 +1,6 @@
 # 🧬 ProteinFold-RL
 
-> **AlphaFold shows the destination. We discover the journey.**
+> **AlphaFold shows the destination. We discover the journey.... **
 
 An reinforcement learning agent that learns **how proteins fold** — not just where they end up.
 Rewarded by the laws of chemistry. No human labels. Physics is the teacher.
