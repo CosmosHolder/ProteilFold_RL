@@ -26,6 +26,7 @@ Serialization
 - Training can be resumed exactly from where it stopped.
 
 Run : python data/curriculum.py   (self-test)
+this is the running mechanism
 """
 
 import json
