@@ -10,6 +10,7 @@ Does NOT train anything.
 
 Run : python data/download_proteins.py
       python data/download_proteins.py --force   (re-download everything)
+      this is the running mechanism
 """
 
 import argparse
