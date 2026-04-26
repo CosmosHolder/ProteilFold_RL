@@ -10,6 +10,7 @@ Output : frontend/assets/data/training_log.json
 
 The JSON is fetched by charts.js to populate the dashboard
 with real training data instead of synthetic fallback.
+this is the running mechanism
 """
 
 import csv
