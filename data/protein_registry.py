@@ -15,6 +15,7 @@ Those are separate files with separate jobs.
 
 File location : data/protein_registry.py
 Run directly  : python data/protein_registry.py  (self-test + print table)
+this is the running mechanism
 """
 
 import os
