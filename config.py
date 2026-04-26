@@ -8,6 +8,7 @@ Import from here instead of hardcoding values in each file.
 Usage
 -----
   from config import MAX_ACTION_DIM, CHECKPOINT_PATH
+  this is the running mechanism
 """
 
 import os
